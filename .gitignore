@@ -29,3 +29,5 @@ Thumbs.db
 .idea/
 .tempmediaStorage/
 .user_uploaded/
+*.exe
+Task.txt
