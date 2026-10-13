@@ -1,0 +1,500 @@
+{
+  "rows": 8,
+  "cols": 8,
+  "bbox": [
+    37.007796410759056,
+    9.843749999999375,
+    38.531249999999204,
+    11.262341543927676
+  ],
+  "lat_step": 0.1773239429910376,
+  "lon_step": 0.19043169865501852,
+  "lats": [
+    11.1737,
+    10.9964,
+    10.819,
+    10.6417,
+    10.4644,
+    10.2871,
+    10.1097,
+    9.9324
+  ],
+  "lons": [
+    37.103,
+    37.2934,
+    37.4839,
+    37.6743,
+    37.8647,
+    38.0552,
+    38.2456,
+    38.436
+  ],
+  "inside_count": 49,
+  "outside_count": 15,
+  "cells": [
+    [
+      {
+        "row": 0,
+        "col": 0,
+        "lat": 11.1737,
+        "lon": 37.103,
+        "in_watershed": false
+      },
+      {
+        "row": 0,
+        "col": 1,
+        "lat": 11.1737,
+        "lon": 37.2934,
+        "in_watershed": false
+      },
+      {
+        "row": 0,
+        "col": 2,
+        "lat": 11.1737,
+        "lon": 37.4839,
+        "in_watershed": false
+      },
+      {
+        "row": 0,
+        "col": 3,
+        "lat": 11.1737,
+        "lon": 37.6743,
+        "in_watershed": true
+      },
+      {
+        "row": 0,
+        "col": 4,
+        "lat": 11.1737,
+        "lon": 37.8647,
+        "in_watershed": true
+      },
+      {
+        "row": 0,
+        "col": 5,
+        "lat": 11.1737,
+        "lon": 38.0552,
+        "in_watershed": false
+      },
+      {
+        "row": 0,
+        "col": 6,
+        "lat": 11.1737,
+        "lon": 38.2456,
+        "in_watershed": false
+      },
+      {
+        "row": 0,
+        "col": 7,
+        "lat": 11.1737,
+        "lon": 38.436,
+        "in_watershed": false
+      }
+    ],
+    [
+      {
+        "row": 1,
+        "col": 0,
+        "lat": 10.9964,
+        "lon": 37.103,
+        "in_watershed": false
+      },
+      {
+        "row": 1,
+        "col": 1,
+        "lat": 10.9964,
+        "lon": 37.2934,
+        "in_watershed": true
+      },
+      {
+        "row": 1,
+        "col": 2,
+        "lat": 10.9964,
+        "lon": 37.4839,
+        "in_watershed": true
+      },
+      {
+        "row": 1,
+        "col": 3,
+        "lat": 10.9964,
+        "lon": 37.6743,
+        "in_watershed": true
+      },
+      {
+        "row": 1,
+        "col": 4,
+        "lat": 10.9964,
+        "lon": 37.8647,
+        "in_watershed": true
+      },
+      {
+        "row": 1,
+        "col": 5,
+        "lat": 10.9964,
+        "lon": 38.0552,
+        "in_watershed": true
+      },
+      {
+        "row": 1,
+        "col": 6,
+        "lat": 10.9964,
+        "lon": 38.2456,
+        "in_watershed": true
+      },
+      {
+        "row": 1,
+        "col": 7,
+        "lat": 10.9964,
+        "lon": 38.436,
+        "in_watershed": true
+      }
+    ],
+    [
+      {
+        "row": 2,
+        "col": 0,
+        "lat": 10.819,
+        "lon": 37.103,
+        "in_watershed": true
+      },
+      {
+        "row": 2,
+        "col": 1,
+        "lat": 10.819,
+        "lon": 37.2934,
+        "in_watershed": true
+      },
+      {
+        "row": 2,
+        "col": 2,
+        "lat": 10.819,
+        "lon": 37.4839,
+        "in_watershed": true
+      },
+      {
+        "row": 2,
+        "col": 3,
+        "lat": 10.819,
+        "lon": 37.6743,
+        "in_watershed": true
+      },
+      {
+        "row": 2,
+        "col": 4,
+        "lat": 10.819,
+        "lon": 37.8647,
+        "in_watershed": true
+      },
+      {
+        "row": 2,
+        "col": 5,
+        "lat": 10.819,
+        "lon": 38.0552,
+        "in_watershed": true
+      },
+      {
+        "row": 2,
+        "col": 6,
+        "lat": 10.819,
+        "lon": 38.2456,
+        "in_watershed": true
+      },
+      {
+        "row": 2,
+        "col": 7,
+        "lat": 10.819,
+        "lon": 38.436,
+        "in_watershed": true
+      }
+    ],
+    [
+      {
+        "row": 3,
+        "col": 0,
+        "lat": 10.6417,
+        "lon": 37.103,
+        "in_watershed": true
+      },
+      {
+        "row": 3,
+        "col": 1,
+        "lat": 10.6417,
+        "lon": 37.2934,
+        "in_watershed": true
+      },
+      {
+        "row": 3,
+        "col": 2,
+        "lat": 10.6417,
+        "lon": 37.4839,
+        "in_watershed": true
+      },
+      {
+        "row": 3,
+        "col": 3,
+        "lat": 10.6417,
+        "lon": 37.6743,
+        "in_watershed": true
+      },
+      {
+        "row": 3,
+        "col": 4,
+        "lat": 10.6417,
+        "lon": 37.8647,
+        "in_watershed": true
+      },
+      {
+        "row": 3,
+        "col": 5,
+        "lat": 10.6417,
+        "lon": 38.0552,
+        "in_watershed": true
+      },
+      {
+        "row": 3,
+        "col": 6,
+        "lat": 10.6417,
+        "lon": 38.2456,
+        "in_watershed": true
+      },
+      {
+        "row": 3,
+        "col": 7,
+        "lat": 10.6417,
+        "lon": 38.436,
+        "in_watershed": true
+      }
+    ],
+    [
+      {
+        "row": 4,
+        "col": 0,
+        "lat": 10.4644,
+        "lon": 37.103,
+        "in_watershed": true
+      },
+      {
+        "row": 4,
+        "col": 1,
+        "lat": 10.4644,
+        "lon": 37.2934,
+        "in_watershed": true
+      },
+      {
+        "row": 4,
+        "col": 2,
+        "lat": 10.4644,
+        "lon": 37.4839,
+        "in_watershed": true
+      },
+      {
+        "row": 4,
+        "col": 3,
+        "lat": 10.4644,
+        "lon": 37.6743,
+        "in_watershed": true
+      },
+      {
+        "row": 4,
+        "col": 4,
+        "lat": 10.4644,
+        "lon": 37.8647,
+        "in_watershed": true
+      },
+      {
+        "row": 4,
+        "col": 5,
+        "lat": 10.4644,
+        "lon": 38.0552,
+        "in_watershed": true
+      },
+      {
+        "row": 4,
+        "col": 6,
+        "lat": 10.4644,
+        "lon": 38.2456,
+        "in_watershed": true
+      },
+      {
+        "row": 4,
+        "col": 7,
+        "lat": 10.4644,
+        "lon": 38.436,
+        "in_watershed": true
+      }
+    ],
+    [
+      {
+        "row": 5,
+        "col": 0,
+        "lat": 10.2871,
+        "lon": 37.103,
+        "in_watershed": true
+      },
+      {
+        "row": 5,
+        "col": 1,
+        "lat": 10.2871,
+        "lon": 37.2934,
+        "in_watershed": true
+      },
+      {
+        "row": 5,
+        "col": 2,
+        "lat": 10.2871,
+        "lon": 37.4839,
+        "in_watershed": true
+      },
+      {
+        "row": 5,
+        "col": 3,
+        "lat": 10.2871,
+        "lon": 37.6743,
+        "in_watershed": true
+      },
+      {
+        "row": 5,
+        "col": 4,
+        "lat": 10.2871,
+        "lon": 37.8647,
+        "in_watershed": true
+      },
+      {
+        "row": 5,
+        "col": 5,
+        "lat": 10.2871,
+        "lon": 38.0552,
+        "in_watershed": true
+      },
+      {
+        "row": 5,
+        "col": 6,
+        "lat": 10.2871,
+        "lon": 38.2456,
+        "in_watershed": true
+      },
+      {
+        "row": 5,
+        "col": 7,
+        "lat": 10.2871,
+        "lon": 38.436,
+        "in_watershed": true
+      }
+    ],
+    [
+      {
+        "row": 6,
+        "col": 0,
+        "lat": 10.1097,
+        "lon": 37.103,
+        "in_watershed": false
+      },
+      {
+        "row": 6,
+        "col": 1,
+        "lat": 10.1097,
+        "lon": 37.2934,
+        "in_watershed": true
+      },
+      {
+        "row": 6,
+        "col": 2,
+        "lat": 10.1097,
+        "lon": 37.4839,
+        "in_watershed": true
+      },
+      {
+        "row": 6,
+        "col": 3,
+        "lat": 10.1097,
+        "lon": 37.6743,
+        "in_watershed": true
+      },
+      {
+        "row": 6,
+        "col": 4,
+        "lat": 10.1097,
+        "lon": 37.8647,
+        "in_watershed": true
+      },
+      {
+        "row": 6,
+        "col": 5,
+        "lat": 10.1097,
+        "lon": 38.0552,
+        "in_watershed": true
+      },
+      {
+        "row": 6,
+        "col": 6,
+        "lat": 10.1097,
+        "lon": 38.2456,
+        "in_watershed": true
+      },
+      {
+        "row": 6,
+        "col": 7,
+        "lat": 10.1097,
+        "lon": 38.436,
+        "in_watershed": false
+      }
+    ],
+    [
+      {
+        "row": 7,
+        "col": 0,
+        "lat": 9.9324,
+        "lon": 37.103,
+        "in_watershed": false
+      },
+      {
+        "row": 7,
+        "col": 1,
+        "lat": 9.9324,
+        "lon": 37.2934,
+        "in_watershed": false
+      },
+      {
+        "row": 7,
+        "col": 2,
+        "lat": 9.9324,
+        "lon": 37.4839,
+        "in_watershed": false
+      },
+      {
+        "row": 7,
+        "col": 3,
+        "lat": 9.9324,
+        "lon": 37.6743,
+        "in_watershed": true
+      },
+      {
+        "row": 7,
+        "col": 4,
+        "lat": 9.9324,
+        "lon": 37.8647,
+        "in_watershed": true
+      },
+      {
+        "row": 7,
+        "col": 5,
+        "lat": 9.9324,
+        "lon": 38.0552,
+        "in_watershed": false
+      },
+      {
+        "row": 7,
+        "col": 6,
+        "lat": 9.9324,
+        "lon": 38.2456,
+        "in_watershed": false
+      },
+      {
+        "row": 7,
+        "col": 7,
+        "lat": 9.9324,
+        "lon": 38.436,
+        "in_watershed": false
+      }
+    ]
+  ]
+}

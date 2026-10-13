@@ -1,0 +1,31 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Large scientific data files & model weights (Hosted on Hugging Face: https://huggingface.co/aykgeh/drought_forecasting_tekeze_basin)
+*.nc
+*.npz
+*.pt
+*.pth
+*.bin
+*.db
+data/raw/
+*.h5
+*.hdf5
+
+# IDE & OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.tempmediaStorage/
+.user_uploaded/

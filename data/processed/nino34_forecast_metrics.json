@@ -1,0 +1,53 @@
+{
+  "1_month_lead": {
+    "lead_months": 1,
+    "best_model": "PyTorch_LSTM",
+    "test_samples": 130,
+    "test_rmse": 0.3512,
+    "test_mae": 0.2046,
+    "test_r2": 0.8022,
+    "pearson_r": 0.9002,
+    "persistence_rmse": 0.4657,
+    "skill_gain_vs_persistence_pct": 24.59,
+    "all_models_rmse": {
+      "Persistence": 0.4657,
+      "Ridge": 0.4671,
+      "XGBoost": 0.3528,
+      "PyTorch_LSTM": 0.3512
+    }
+  },
+  "3_month_lead": {
+    "lead_months": 3,
+    "best_model": "Ridge",
+    "test_samples": 128,
+    "test_rmse": 0.5328,
+    "test_mae": 0.3939,
+    "test_r2": 0.5076,
+    "pearson_r": 0.7266,
+    "persistence_rmse": 0.7733,
+    "skill_gain_vs_persistence_pct": 31.1,
+    "all_models_rmse": {
+      "Persistence": 0.7733,
+      "Ridge": 0.5328,
+      "XGBoost": 0.5408,
+      "PyTorch_LSTM": 0.5601
+    }
+  },
+  "6_month_lead": {
+    "lead_months": 6,
+    "best_model": "Ridge",
+    "test_samples": 125,
+    "test_rmse": 0.6806,
+    "test_mae": 0.5717,
+    "test_r2": 0.2,
+    "pearson_r": 0.5077,
+    "persistence_rmse": 1.0418,
+    "skill_gain_vs_persistence_pct": 34.67,
+    "all_models_rmse": {
+      "Persistence": 1.0418,
+      "Ridge": 0.6806,
+      "XGBoost": 0.7237,
+      "PyTorch_LSTM": 0.7169
+    }
+  }
+}
