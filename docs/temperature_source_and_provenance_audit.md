@@ -1,10 +1,10 @@
 # Gate 1 Temperature-Source Audit & Provenance Report
 ## AI-DREWS Climate Reconstruction Pipeline for the Tekezé River Basin
 
-**Document ID:** `AI-DREWS-GATE1-TEMP-AUDIT-2026-10`  
+**Document ID:** `AI-DREWS-GATE1-TEMP-AUDIT-2026-10-REV2`  
 **Standard:** WMO-No. 100 / Copernicus CDS / NOAA PSL Reference Standards  
-**Status:** **GATE 1 ACCEPTANCE CHECKLIST: 6 OF 6 COMPLETE**  
-**Spatial Domain:** Tekezé River Basin Catchment ($67,135.4\text{ km}^2$, Northern Ethiopia; Lat: $11.6619^\circ\text{N}–14.7958^\circ\text{N}$, Lon: $35.8583^\circ\text{E}–39.7917^\circ\text{E}$)  
+**Status:** **PARTIAL (1984 Benchmark Certified; 1981–2024 Archive Ingestion Pending)**  
+**Spatial Domain:** Tekezé River Basin Catchment ($67,135.4\text{ km}^2$ provisional, Northern Ethiopia; Lat: $11.6619^\circ\text{N}–14.7958^\circ\text{N}$, Lon: $35.8583^\circ\text{E}–39.7917^\circ\text{E}$)  
 **Target Historical Period:** 1981–2024 (528 calendar months)
 
 ---
@@ -14,10 +14,11 @@
 Per the scientific audit directive, the complete 1981–2024 historical reconstruction remains **strictly paused** until temperature data provenance, daily extrema requirements, basin spatial aggregation, and distribution fitting are empirically audited. 
 
 This deliverable establishes the **Gate 1 Temperature-Data Strategy**:
-1. **Primary Dataset:** **ECMWF ERA5-Land Reanalysis** ($0.1^\circ \approx 9\text{ km}$, 1950–present), deriving daily $T_{\max}$ and $T_{\min}$ from hourly 2 m temperature records, and preserving monthly mean $T_{2\text{m}}$ separately for Thornthwaite baseline comparisons.
-2. **Independent Comparison Dataset:** **NOAA CPC Global Unified Temperature** ($0.5^\circ \times 0.5^\circ$ daily GTS station analysis, 1979–present), preserving daily observed extrema ($T_{\max}, T_{\min}$) across the basin.
+1. **Primary Dataset:** **ECMWF ERA5-Land Reanalysis** ($0.1^\circ \approx 9\text{ km}$, 1950–present), deriving daily $T_{\max}$ and $T_{\min}$ from hourly 2 m temperature records, and preserving monthly mean $T_{2\text{m}}$ separately for Thornthwaite baseline comparisons. ERA5-Land is a numerical model reanalysis driven by atmospheric forcing, **not direct ground station measurements**.
+2. **Independent Comparison Dataset:** **NOAA CPC Global Unified Temperature** ($0.5^\circ \times 0.5^\circ$ daily GTS station analysis, 1979–present), preserving daily observed extrema ($T_{\max}, T_{\min}$) across the basin. NOAA CPC is an **independent gridded comparison product**, not automatic in-situ ground truth.
 3. **Synthetic Temperature Fallback Disabled:** The previous heuristic function (`get_verified_monthly_temperature()`) generating synthetic temperatures from assumed warming trends and hardcoded year offsets has been **completely disabled** in production code paths. The pipeline now raises an explicit `MissingTemperatureDataError` if verified raw files are absent.
 4. **Mathematical Record Preservation:** Hosking (1990) Generalized Logistic (GLO) distribution parameterization and CDF have been validated as a complete pair $(F(x), x(F))$ with machine-precision round-trip identity ($|F(x(F)) - F| < 10^{-15}$).
+5. **Full Archive Ingestion Pending:** While reproducible downloaders and the 1984 benchmark are certified, the full 44-year ingestion remains pending execution of Copernicus CDS batch download scripts. Gate 1 status is formally **PARTIAL** until the full archive is ingested and verified with SHA-256 hashes.
 
 ### Gate 1 Acceptance Checklist Status
 
@@ -248,11 +249,11 @@ The 1984 Ethiopian drought was one of the most severe climate anomalies in moder
 | Attribute | Primary: ECMWF ERA5-Land | Independent Comparison: NOAA CPC | Scientific Assessment |
 |---|---|---|---|
 | **Native Grid** | $0.1^\circ \times 0.1^\circ$ (~9 km) | $0.5^\circ \times 0.5^\circ$ (~55 km) | ERA5-Land resolves elevation lapse rates across the Simien Escarpment (800m to 4,500m) far better than CPC's coarse 55 km grid. |
-| **Observation Type** | Atmospheric Model Reanalysis (HTESSEL) assimilating satellite & surface data | Station-only GTS analysis interpolated via Shepard algorithm with CRU orographic adjustment | CPC is direct observation from surface weather stations; ERA5-Land is a dynamically consistent physical reanalysis. |
+| **Observation Type** | Atmospheric Land-Surface Reanalysis (HTESSEL) driven by IFS atmospheric forcing | Gridded analysis interpolating operational GTS station reports via Shepard algorithm with CRU orographic adjustment | CPC is an independent gridded comparison product; ERA5-Land is a physically consistent reanalysis. Neither should be conflated with direct in-situ station observations. |
 | **Extrema Source** | Hourly $T_{2\text{m}}$ records ($\max / \min$ across 24 hourly steps) | Operational station GTS 6z–6z daily maxima and minima | Both yield true diurnal extrema. ERA5-Land hourly derivation eliminates station reporting time discrepancies. |
-| **Basin Cells** | ~630 active cells over Tekezé polygon | 38 active cells over Tekezé polygon | ERA5-Land provides 16x higher spatial sampling density across the catchment. |
-| **Access Protocol** | CDS API client with personal user token (`~/.cdsapirc`) | Direct HTTP/FTP via `psl.noaa.gov` or `ftp.cpc.ncep.noaa.gov` | CPC can be ingested autonomously; ERA5-Land requires registered CDS API credentials. |
-| **Application Role** | **Target Primary Driver for Hargreaves PET** | **Benchmark Validation & Quality Control Constraint** | The combination provides both physical high-resolution dynamics and independent observational ground truth. |
+| **Basin Cells** | ~782 active cells over Tekezé polygon | 38 active cells over Tekezé polygon | ERA5-Land provides over 20x higher spatial sampling density across the catchment. |
+| **Access Protocol** | CDS API client with personal user token (`~/.cdsapirc`) | Direct HTTP via `psl.noaa.gov/thredds/` | CPC can be ingested autonomously; ERA5-Land requires registered Copernicus CDS credentials. |
+| **Application Role** | **Target Primary Driver for Hargreaves PET** | **Benchmark Validation & Quality Control Constraint** | The combination provides both high-resolution physics and independent gridded cross-validation. |
 
 ---
 

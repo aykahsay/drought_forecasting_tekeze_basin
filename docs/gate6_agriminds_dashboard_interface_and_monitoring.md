@@ -44,8 +44,8 @@ To prevent silent schema drifts or serialization bugs, the interface between the
     "lead_time_months": {"type": "integer", "enum": [1, 3, 6]},
     "model_version": {"type": "string", "example": "AI-DREWS-v1.0-FNO"},
     "forecast_median": {"type": "number"},
-    "confidence_interval_80": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
-    "confidence_interval_95": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
+    "predictive_interval_80": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
+    "predictive_interval_95": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
     "drought_probabilities": {
       "type": "object",
       "properties": {
@@ -61,7 +61,7 @@ To prevent silent schema drifts or serialization bugs, the interface between the
       "brier_skill_score": {"type": "number"}
     }
   },
-  "required": ["issue_date", "valid_target_date", "lead_time_months", "forecast_median", "confidence_interval_80"]
+  "required": ["issue_date", "valid_target_date", "lead_time_months", "forecast_median", "predictive_interval_80"]
 }
 ```
 

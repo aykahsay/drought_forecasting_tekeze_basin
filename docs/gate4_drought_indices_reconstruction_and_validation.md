@@ -19,11 +19,10 @@ Where:
 * $\Delta T_d = T_{\max,d} - T_{\min,d}$ is the daily diurnal temperature range (DTR).
 
 #### 1.2 Jensen's Inequality & Extrema Aggregation Constraint
-By Jensen's inequality for concave functions:
-$$f(x) = \sqrt{x} \implies \mathbb{E}[\sqrt{\Delta T}] < \sqrt{\mathbb{E}[\Delta T]}$$
-Substituting monthly average extrema $\sqrt{\bar{T}_{\max} - \bar{T}_{\min}}$ instead of averaging daily roots $\overline{\sqrt{T_{\max,d} - T_{\min,d}}}$ introduces an artificial positive bias:
-$$\text{Ratio} = \frac{\overline{\sqrt{\Delta T}}}{\sqrt{\overline{\Delta T}}} \in [0.986, 0.995]$$
-* **Finding:** Naive monthly extrema overestimates monthly PET by **+0.5% to +1.4%** across the Tekezé Basin (documented in [`data/processed/tekeze_monthly_temperature_audit_1981_2024.csv`](file:///c:/Users/User/Desktop/AgriMinds/data/processed/tekeze_monthly_temperature_audit_1981_2024.csv)).
+By Jensen's inequality for concave functions ($f(u) = \sqrt{u}$):
+$$\mathbb{E}[\sqrt{\Delta T}] \le \sqrt{\mathbb{E}[\Delta T]}$$
+Substituting monthly average extrema $\sqrt{\bar{T}_{\max} - \bar{T}_{\min}}$ instead of averaging daily roots $\overline{\sqrt{T_{\max,d} - T_{\min,d}}}$ introduces a systematic positive bias whose magnitude depends on the daily diurnal range variance.
+* **Empirical Treatment:** Rather than asserting an arbitrary universal percentage bias, the pipeline computes both $\overline{\sqrt{\Delta T}}$ and $\sqrt{\overline{\Delta T}}$ across the actual observed daily series. In the 1984 benchmark year, this ratio ranged between 0.986 and 0.995.
 * **Gate 4 Standard:** The pipeline strictly derives daily extrema from hourly ERA5-Land (or daily NOAA CPC) and computes $\overline{\sqrt{\Delta T}}$ prior to monthly accumulation.
 
 #### 1.3 Comparative Reference Baselines
@@ -43,7 +42,8 @@ For each calendar month $t \in \{1, \dots, 528\}$:
    $$P_{3,t} = \sum_{k=0}^2 P_{t-k}$$
 
 #### 2.2 Month-Specific Calibration over Fixed Normal (1991–2020)
-Because climate regimes in Northern Ethiopia are strongly bimodal (Belg short rains: March–May; Kiremt main rains: June–September; Bega dry season: October–February), distributions **must be fitted separately for each calendar month**:
+Because climate regimes in Northern Ethiopia are strongly bimodal (Belg short rains: March–May; Kiremt main rains: June–September; Bega dry season: October–February), distributions are fitted separately for each of the 12 ending calendar months:
+* **Declared Methodological Baseline:** We adopt the 30-year standard climatological normal period (1991–2020) as our explicit methodological baseline. Inadequate calibration sample sizes ($N < 20$) will be reported rather than silently shifting periods.
 * For each ending calendar month $m \in \{1, \dots, 12\}$:
   * Extract calibration observations $\{D_{3, y, m} \mid y \in [1991, 2020]\}$.
   * Require at least $N_{\text{valid}} \ge 20$ years; otherwise raise `InadequateBaselineSampleError`.
@@ -57,19 +57,19 @@ Because climate regimes in Northern Ethiopia are strongly bimodal (Belg short ra
 
 ---
 
-### 3. Historical Drought Ground-Truth Benchmarking Matrix
+### 3. Historical Drought Ground-Truth Benchmarking: Testable Hypotheses
 
-The reconstructed indices must align with documented climate anomalies, food security crises, and FEWS NET historical records across Tigray and the Tekezé Basin:
+Historical events are treated as **testable validation hypotheses**, not required predetermined numbers. The pipeline will never force an index to match an expected value:
 
-| Historical Event | Observed Climate Impact | Independent Evidence / Agency Record | Expected SPEI-3 / SPI-3 Signal | Reconstruction Benchmark Result |
+| Historical Event | Observed Meteorological Context | Independent Humanitarian / Agency Record | Validation Hypothesis (Target Anomaly Direction) | Reconstruction Status |
 |---|---|---|---|:---:|
-| **1984–1985 Great Ethiopian Famine** | Severe Kiremt failure across northern highlands; extreme heat anomalies. | Relief and Rehabilitation Commission (RRC); FEWS NET; WFP archives. | July–Sept 1984: $\text{SPEI-3} \le -2.00$ (Extreme Drought) | **VERIFIED in 1984 CPC Benchmark** ($\text{SPEI-3} = -2.14$) |
-| **1987 El Niño Drought** | Substantial monsoon withdrawal; Belg failure. | WMO African Climate Review; FEWS NET. | Belg (May) $\le -1.2$; Kiremt (Sept) $\le -1.5$ | Planned Gate 4 Validation Target |
-| **1988 Pluvial Recovery** | Widespread pluvial; massive Tigray flooding. | Ethiopian National Meteorological Agency (NMA). | Sept 1988: $\text{SPEI-3} \ge +1.50$ (Very Wet) | Planned Gate 4 Validation Target |
-| **1997–1998 Super El Niño** | Delayed Kiremt followed by unseasonal Bega rains. | NOAA Climate Prediction Center; FEWS NET. | Mixed: delayed onset, late pluvial | Planned Gate 4 Validation Target |
-| **2002–2003 Major Drought** | Catastrophic failure of Belg and Kiremt; 14M affected. | Government of Ethiopia / UN OCHA Emergency Appeal. | Sept 2002: $\text{SPEI-3} \le -1.80$ (Severe Drought) | Planned Gate 4 Validation Target |
-| **2009 Belg Failure** | Intense spring pastoral drought. | FEWS NET Tigray Alert. | May 2009: $\text{SPEI-3} \le -1.40$ | Planned Gate 4 Validation Target |
-| **2015–2016 Extreme El Niño** | Strongest El Niño on record; severe drought in Tigray and Afar. | FEWS NET Special Report (2016); FAO Global Information. | Sept 2015: $\text{SPEI-3} \le -2.20$ (Extreme Drought) | Planned Gate 4 Validation Target |
+| **1984–1985 Great Ethiopian Famine** | Severe Kiremt failure across northern highlands; extreme heat. | Relief and Rehabilitation Commission (RRC); FEWS NET; WFP archives. | July–Sept 1984: Expect significant negative anomaly ($\text{SPEI-3} \ll 0$) | **VERIFIED in 1984 CPC Benchmark** ($\text{SPEI-3} = -2.14$) |
+| **1987 El Niño Drought** | Substantial monsoon withdrawal; Belg failure. | WMO African Climate Review; FEWS NET. | Belg (May) and Kiremt (Sept) negative anomaly | Testable Hypothesis (Pending Archive) |
+| **1988 Pluvial Recovery** | Widespread pluvial; massive Tigray flooding. | Ethiopian National Meteorological Agency (NMA). | Sept 1988: Positive anomaly ($\text{SPEI-3} > 0$) | Testable Hypothesis (Pending Archive) |
+| **1997–1998 Super El Niño** | Delayed Kiremt followed by unseasonal Bega rains. | NOAA Climate Prediction Center; FEWS NET. | Mixed anomaly pattern (delayed onset, late rains) | Testable Hypothesis (Pending Archive) |
+| **2002–2003 Major Drought** | Catastrophic failure of Belg and Kiremt; 14M affected. | Government of Ethiopia / UN OCHA Emergency Appeal. | Sept 2002: Pronounced negative anomaly | Testable Hypothesis (Pending Archive) |
+| **2009 Belg Failure** | Intense spring pastoral drought. | FEWS NET Tigray Alert. | May 2009: Negative anomaly in short-rains Belg | Testable Hypothesis (Pending Archive) |
+| **2015–2016 Extreme El Niño** | Strongest El Niño on record; severe drought in Tigray and Afar. | FEWS NET Special Report (2016); FAO Global Information. | Sept 2015: Severe negative anomaly | Testable Hypothesis (Pending Archive) |
 
 ---
 

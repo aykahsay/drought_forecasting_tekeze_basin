@@ -17,10 +17,12 @@ The forecasting system targets seasonal early warning for agricultural planning 
 2. **Secondary Target:**
    * **May-Ending SPEI-3 ($\text{SPEI-3}_{\text{May}}$):** Captures cumulative moisture balance across the Belg short-rain season (March, April, May), critical for pastoral pasture and long-cycle crops.
 3. **Operational Lead Times & Issue Schedules:**
-   * **Lead 1 (1-month lead):** Issued June 1 for Kiremt (predicting July–Sept conditions).
-   * **Lead 3 (3-month lead):** Issued April 1 for Kiremt.
-   * **Lead 6 (6-month lead):** Issued January 1 for Kiremt.
-4. **Categorical Drought Early Warning:**
+   * **Target Accumulation Period:** September-ending SPEI-3 incorporates July, August, and September conditions.
+   * **Forecast Issued June 1 (Lead 3 to Target End):** On June 1, July, August, and September rainfall and temperature are **entirely unobserved**. The model must predict this future seasonal water balance using strictly pre-June observations (predictors available on or before May 31).
+   * **Forecast Issued April 1 (Lead 5 to Target End):** Seasonal outlook for agricultural planning.
+   * **Forecast Issued January 1 (Lead 8 to Target End):** Long-range outlook.
+4. **Categorical Drought Early Warning & Predictive Intervals:**
+   * **Uncertainty Quantification:** Evaluated via **80% and 95% predictive intervals** (not confidence intervals), with nominal empirical coverage evaluated on frozen test holdout data.
    * **Moderate Drought:** $\text{SPEI-3} \le -1.00$ ($P \le 0.1587$)
    * **Severe Drought:** $\text{SPEI-3} \le -1.50$ ($P \le 0.0668$)
    * **Extreme Drought:** $\text{SPEI-3} \le -2.00$ ($P \le 0.0228$)

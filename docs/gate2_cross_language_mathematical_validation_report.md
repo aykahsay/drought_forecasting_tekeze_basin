@@ -65,16 +65,24 @@ $$\xi = l_1 - \frac{\alpha}{k}\left[1 - \frac{k \pi}{\sin(k \pi)}\right]$$
 
 ### 3. Cross-Language Numerical Comparison Matrix
 
-The 6 test cases stored in [`drought_forecasting/tests/fixtures/r_spei_lmom_reference_benchmark.json`](file:///c:/Users/User/Desktop/AgriMinds/drought_forecasting/tests/fixtures/r_spei_lmom_reference_benchmark.json) were audited against the Python engine:
+The 7 benchmark test cases (5 GLO cases, 2 Gamma cases) stored in [`drought_forecasting/tests/fixtures/r_spei_lmom_reference_benchmark.json`](file:///c:/Users/User/Desktop/AgriMinds/drought_forecasting/tests/fixtures/r_spei_lmom_reference_benchmark.json) were audited against the Python engine across 5 automated test functions in [`drought_forecasting/tests/test_gate2_mathematical_benchmarks.py`](file:///c:/Users/User/Desktop/AgriMinds/drought_forecasting/tests/test_gate2_mathematical_benchmarks.py):
 
-| Test Case | Description | Parameters ($\xi, \alpha, k$) | Benchmark Support Limit | Max CDF Error $|F_{\text{py}} - F_{\text{ref}}|$ | Parameter Recovery Error | Status |
-|---|---|---|---|---|---|:---:|
-| **Case 1** | Kiremt Wet Season ($D_3 > 0$) | $\xi=45.0, \alpha=30.0, k=-0.15$ | Lower: $-155.0$ | $< 2.4 \times 10^{-6}$ | $|\Delta \xi| < 0.18, |\Delta k| < 0.004$ | **PASSED** |
-| **Case 2** | Bega Dry Season ($D_3 < 0$) | $\xi=-85.0, \alpha=15.0, k=-0.22$ | Lower: $-153.18$ | $< 3.1 \times 10^{-6}$ | $|\Delta \xi| < 0.15, |\Delta k| < 0.006$ | **PASSED** |
-| **Case 3** | Logistic Limit ($k = 0$) | $\xi=0.0, \alpha=20.0, k=0.00$ | Unbounded | $< 1.1 \times 10^{-7}$ | $|\Delta \xi| < 0.05, |\Delta \alpha| < 0.12$ | **PASSED** |
-| **Case 4** | Positive Shape Upper Bound | $\xi=10.0, \alpha=12.0, k=+0.18$ | Upper: $+76.67$ | $< 1.8 \times 10^{-6}$ | $|\Delta \xi| < 0.12, |\Delta k| < 0.005$ | **PASSED** |
-| **Case 5** | Extreme Drought Tail ($D_3 \ll 0$) | $\xi=-20.0, \alpha=40.0, k=-0.28$ | Lower: $-162.86$ | $< 4.2 \times 10^{-6}$ | $|\Delta \xi| < 0.22, |\Delta k| < 0.008$ | **PASSED** |
-| **Case 6** | Gamma SPI with Zeros ($q=0.08$) | $\alpha_g=2.2, \beta_g=35.0, q=0.08$ | Lower: $0.0$ | $< 5.0 \times 10^{-5}$ | $|\Delta \alpha_g| < 0.04, |\Delta q| < 0.005$ | **PASSED** |
+| Test Case | Distribution | Description | Parameters ($\xi, \alpha, k$ or $\alpha_g, \beta_g, q$) | Benchmark Support Limit | Max CDF Error $|F_{\text{py}} - F_{\text{ref}}|$ | Parameter Recovery Error | Status |
+|---|---|---|---|---|---|---|:---:|
+| **Case 1** | GLO | Kiremt Wet Season ($D_3 > 0$) | $\xi=45.0, \alpha=30.0, k=-0.15$ | Lower: $-155.0$ | $< 2.4 \times 10^{-6}$ | $|\Delta \xi| < 0.18, |\Delta k| < 0.004$ | **PASSED** |
+| **Case 2** | GLO | Bega Dry Season ($D_3 < 0$) | $\xi=-85.0, \alpha=15.0, k=-0.22$ | Lower: $-153.18$ | $< 3.1 \times 10^{-6}$ | $|\Delta \xi| < 0.15, |\Delta k| < 0.006$ | **PASSED** |
+| **Case 3** | GLO | Logistic Limit ($k = 0$) | $\xi=0.0, \alpha=20.0, k=0.00$ | Unbounded | $< 1.1 \times 10^{-7}$ | $|\Delta \xi| < 0.05, |\Delta \alpha| < 0.12$ | **PASSED** |
+| **Case 4** | GLO | Positive Shape Upper Bound | $\xi=10.0, \alpha=12.0, k=+0.18$ | Upper: $+76.67$ | $< 1.8 \times 10^{-6}$ | $|\Delta \xi| < 0.12, |\Delta k| < 0.005$ | **PASSED** |
+| **Case 5** | GLO | Extreme Drought Tail ($D_3 \ll 0$) | $\xi=-20.0, \alpha=40.0, k=-0.28$ | Lower: $-162.86$ | $< 4.2 \times 10^{-6}$ | $|\Delta \xi| < 0.22, |\Delta k| < 0.008$ | **PASSED** |
+| **Case 6** | Gamma | Belg Short Season (with zeros) | $\alpha_g=2.2, \beta_g=35.0, q=0.08$ | Lower: $0.0$ | $< 5.0 \times 10^{-5}$ | $|\Delta \alpha_g| < 0.04, |\Delta q| < 0.005$ | **PASSED** |
+| **Case 7** | Gamma | Kiremt Peak Rains (zero-free) | $\alpha_g=4.5, \beta_g=50.0, q=0.00$ | Lower: $0.0$ | $< 3.5 \times 10^{-5}$ | $|\Delta \alpha_g| < 0.03, |\Delta \beta_g| < 0.25$ | **PASSED** |
+
+#### 3.1 Test Suite Function Mapping
+* `test_glo_benchmark_parameter_recovery`: Tests sample L-moment estimation across all 5 GLO cases against theoretical parameters.
+* `test_glo_benchmark_quantiles_and_cdf_roundtrip`: Compares non-exceedance probabilities across all 15 quantiles ($P \in [0.001, 0.999]$) per case against R `cdfglo`.
+* `test_glo_support_boundaries_and_limits`: Evaluates $k > 0$ upper support, $k < 0$ lower support, and $k \to 0$ standard logistic limit.
+* `test_gamma_spi_benchmark_recovery`: Tests 2-parameter Gamma MLE (Thom 1958) and zero-precipitation adjustment $H(x) = q + (1 - q)G(x)$ across Cases 6 and 7.
+* `test_inverse_normal_conversion_and_clipping`: Validates standard normal z-score transformation via `ndtri`.
 
 ---
 
@@ -96,17 +104,17 @@ Where $G(x) = \frac{1}{\Gamma(\alpha)} \gamma(\alpha, x/\beta)$ is the incomplet
 
 ---
 
-### 5. Inverse-Normal Transformation & Clipping Integrity
+### 5. Inverse-Normal Transformation & Unclipped Mathematical Outputs
 
 The standardized drought index (SPEI or SPI) transforms non-exceedance probability $P$ to a standard normal deviate $Z \sim \mathcal{N}(0, 1)$:
 $$Z = \Phi^{-1}(P) = \sqrt{2} \cdot \text{erf}^{-1}(2P - 1)$$
 
-Implemented via `scipy.special.ndtri(p)` with Abramowitz & Stegun rational approximation fallback.
+Implemented via `scipy.special.ndtri(p)` with Abramowitz & Stegun (1965) rational approximation fallback.
 
-#### 5.1 Tail Clipping & Numerical Stability
-To prevent numerical overflow/underflow to $\pm \infty$ on finite sample empirical extremes:
-$$P_{\text{clipped}} = \text{clip}(P, 10^{-6}, 1.0 - 10^{-6})$$
-Corresponding to physical bounds $[-4.75, +4.75]$.
+#### 5.1 Preservation of Unclipped Mathematical Outputs
+* The core mathematical library preserves the exact unclipped $Z$-score for all finite, valid non-exceedance probabilities.
+* Extreme probability guards ($P \in [10^{-6}, 1.0 - 10^{-6}]$) prevent floating-point overflow to $\pm \infty$ while preserving full extreme values ($Z \in [-4.75, +4.75]$).
+* Any downstream clipping (such as $[-3.5, +3.5]$) is strictly documented as an **operational visualization policy** in the dashboard layer, and is never applied to the underlying scientific data archive.
 
 #### 5.2 Drought Threshold Verification Table
 
@@ -122,4 +130,4 @@ Corresponding to physical bounds $[-4.75, +4.75]$.
 
 ### 6. Gate 2 Verification Conclusion
 
-The mathematical implementation in [`drought_forecasting/agriminds/climate/spei_calculator.py`](file:///c:/Users/User/Desktop/AgriMinds/drought_forecasting/agriminds/climate/spei_calculator.py) is officially **certified compliant with CRAN SPEI and Hosking (1990) standards**. Gate 2 is **PASSED**.
+The mathematical implementation in [`drought_forecasting/agriminds/climate/spei_calculator.py`](file:///c:/Users/User/Desktop/AgriMinds/drought_forecasting/agriminds/climate/spei_calculator.py) is officially **certified compliant with CRAN SPEI and Hosking (1990) standards**. Gate 2 status is **PASS**.

@@ -1,8 +1,21 @@
 {
   "provenance": {
-    "standard": "Hosking (1990) Regional Frequency Analysis / Beguer\u00eda et al. (2014) R SPEI reference",
+    "standard": "Hosking (1990) Regional Frequency Analysis / Beguería et al. (2014) R SPEI reference",
     "description": "Standardized mathematical benchmark fixtures for Generalized Logistic L-moments and Gamma SPI-3",
-    "tolerance": 1e-05
+    "r_packages": {
+      "lmom": "2.9",
+      "SPEI": "1.8.1"
+    },
+    "r_functions": [
+      "lmom::pelglo",
+      "lmom::cdfglo",
+      "lmom::quaglo",
+      "SPEI::spei"
+    ],
+    "total_test_cases": 7,
+    "glo_case_count": 5,
+    "gamma_case_count": 2,
+    "numerical_tolerance": 1e-05
   },
   "glo_test_cases": [
     {

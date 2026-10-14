@@ -19,11 +19,14 @@ The study domain represents the complete hydrological Tekezé River Basin catchm
 | **Geometry Representation** | Single MultiPolygon Feature | GeoJSON RFC 7946 | **VERIFIED** |
 | **Topological Validity** | `poly.is_valid == True` | Simple Features Specification | **VERIFIED** |
 | **Coordinate Reference System** | `EPSG:4326 (WGS 84)` | World Geodetic System 1984 | **VERIFIED** |
-| **Spherical Geodesic Area** | $67,135.4\text{ km}^2$ | Spherical excess on WGS 84 ellipsoid ($R=6371.0088\text{ km}$) | **VERIFIED** |
-| **Planar Projected Area** | $67,112.8\text{ km}^2$ | UTM Zone 37N (EPSG:32637) | **VERIFIED** ($|\Delta| < 0.03\%$) |
+| **Spherical Geodesic Area** | $67,135.4\text{ km}^2$ | Spherical excess on WGS 84 ellipsoid ($R=6371.0088\text{ km}$) | **PROVISIONAL AUDIT** |
+| **Planar Projected Area** | $67,112.8\text{ km}^2$ | UTM Zone 37N (EPSG:32637) | **PROVISIONAL AUDIT** ($|\Delta| < 0.03\%$) |
 | **Latitude Extent** | $11.6619^\circ\text{N} \to 14.7958^\circ\text{N}$ | Northern Ethiopian Highlands to Lowlands | **VERIFIED** |
 | **Longitude Extent** | $35.8583^\circ\text{E} \to 39.7917^\circ\text{E}$ | Sudanese border to eastern continental divide | **VERIFIED** |
-| **Constituent HydroBASINS Units** | `[1050648030, 1050692800, 1050692900]` | HydroBASINS Africa Level 5 Sub-catchments | **VERIFIED** |
+| **Constituent HydroBASINS Units** | `[1050648030, 1050692800, 1050692900]` | HydroBASINS Africa Level 5 Sub-catchments | **DOCUMENTED** |
+
+> [!NOTE]
+> The catchment area ($67,135.4\text{ km}^2$) represents the complete transboundary Tekezé drainage basin down to the Ethiopian-Sudanese border. It is maintained as **provisional** until the final report formally records the exact polygon selection, outlet delineation, and HydroBASINS sub-unit topology.
 
 ---
 
@@ -31,7 +34,7 @@ The study domain represents the complete hydrological Tekezé River Basin catchm
 
 The pipeline ingests two independent climate grids spanning the basin:
 1. **Precipitation:** UCSB CHIRPS v2.0 ($0.05^\circ \times 0.05^\circ$ native resolution).
-2. **Temperature:** NOAA CPC Global Unified ($0.50^\circ \times 0.50^\circ$) & ECMWF ERA5-Land ($0.10^\circ \times 0.10^\circ$).
+2. **Temperature:** NOAA CPC Global Unified ($0.50^\circ \times 0.50^\circ$, independent gridded comparison) & ECMWF ERA5-Land ($0.10^\circ \times 0.10^\circ$, primary reanalysis).
 
 #### 2.1 Raster Grid Intersections
 
@@ -54,9 +57,14 @@ The pipeline ingests two independent climate grids spanning the basin:
 
 ### 3. Spatial Aggregation & NoData Contamination Elimination
 
-#### 3.1 Area-Weighted Aggregation Formulation
-To account for grid cell distortion with latitude and boundary truncation, each cell $(i, j)$ intersecting the catchment polygon $\mathcal{P}$ is assigned an exact fractional spherical weight:
-$$w_{i,j} = \frac{\text{Area}(\mathcal{C}_{i,j} \cap \mathcal{P})}{\text{Area}(\mathcal{C}_{i,j})} \cdot \cos(\phi_i)$$
+#### 3.1 Area-Weighted Aggregation Formulation & Double-Counting Safeguard
+To account for grid cell distortion with latitude and boundary truncation, weights are computed using coordinate-space polygon fractions:
+$$f_{i,j} = \left(\frac{\text{Area}(\mathcal{C}_{i,j} \cap \mathcal{P})}{\text{Area}(\mathcal{C}_{i,j})}\right)_{\text{degree space}} \in [0, 1]$$
+
+Because the physical area of a degree-space cell scales with $\cos(\phi_i)$, the effective area weight is:
+$$w_{i,j} = f_{i,j} \cdot \cos(\phi_i)$$
+
+* **Safeguard against Double-Counting:** If the intersection area $\text{Area}(\mathcal{C}_{i,j} \cap \mathcal{P})$ is computed directly as a true geodesic area (in $\text{km}^2$), it is used directly as $w_{i,j}$ **without** multiplying by $\cos(\phi_i)$, preventing duplicate latitude corrections.
 
 Normalized strictly over valid (non-missing, finite) cells:
 $$\bar{X}_{\text{basin}} = \frac{\sum_{(i,j) \in \text{valid}} X_{i,j} \cdot w_{i,j}}{\sum_{(i,j) \in \text{valid}} w_{i,j}}$$
