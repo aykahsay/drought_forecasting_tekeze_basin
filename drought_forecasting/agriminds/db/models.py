@@ -449,6 +449,47 @@ class ModelRegistryRecord(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
+# ────────────────────────────────────────────────────────────────────────────
+# 11. NOAA PSL HadISST Long-Term Monthly Niño 3.4 & Derived Seasonal/Annual
+#     Starts 1870; preserves enso_historical; provides documented monthly series
+# ────────────────────────────────────────────────────────────────────────────
+class Nino34HadISSTMonthlyRecord(Base):
+    """
+    Long-term verified monthly Niño 3.4 SST anomalies from NOAA PSL HadISST (1870–present).
+    Climatology base period: 1981–2010.
+    """
+    __tablename__ = "nino34_hadisst_monthly"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    date = Column(String(10), nullable=False, unique=True, index=True)  # YYYY-MM-01
+    year = Column(Integer, nullable=False, index=True)
+    month = Column(Integer, nullable=False)
+    nino34_anom = Column(Float, nullable=False)
+    phase = Column(String(30), nullable=True)
+    source_id = Column(String(50), default="NOAA_PSL_HadISST_Monthly")
+    units = Column(String(20), default="degC")
+    climatology_base = Column(String(30), default="1981-2010")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class Nino34HadISSTSeasonalAnnualRecord(Base):
+    """
+    Derived 3-month seasonal and 12-month annual summaries computed consistently
+    from monthly HadISST observations (1870–present).
+    """
+    __tablename__ = "nino34_hadisst_seasonal_annual"
+
+    year = Column(Integer, primary_key=True)
+    nino34_djf = Column(Float, nullable=True)     # Dec (prev yr) + Jan + Feb
+    nino34_mam = Column(Float, nullable=True)     # Mar + Apr + May
+    nino34_jja = Column(Float, nullable=True)     # Jun + Jul + Aug
+    nino34_son = Column(Float, nullable=True)     # Sep + Oct + Nov
+    nino34_annual = Column(Float, nullable=True)  # Mean of 12 calendar months
+    n_months_valid = Column(Integer, default=12)
+    source = Column(String(100), default="NOAA_PSL_HadISST")
+    climatology_base = Column(String(30), default="1981-2010")
+    derived_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
 
 # ────────────────────────────────────────────────────────────────────────────
 # Database engine and session factory

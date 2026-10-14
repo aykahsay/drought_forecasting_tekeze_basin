@@ -1,0 +1,178 @@
+[
+  {
+    "Name": "Tekeze Dam Reservoir",
+    "Group": "reservoir_western_bank",
+    "Lat": 13.23,
+    "Lon": 38.71,
+    "Region": "Amhara",
+    "Zone": "Wag Himra",
+    "Woreda": "Abergele",
+    "Kebele": "Debi",
+    "Basin_Status": "FULLY_CONTAINED"
+  },
+  {
+    "Name": "Tekeze Dam Wall & Powerhouse",
+    "Group": "reservoir_western_bank",
+    "Lat": 13.357,
+    "Lon": 38.75,
+    "Region": "Tigray",
+    "Zone": "Central Tigray",
+    "Woreda": "Tanqua Abergele",
+    "Kebele": "Siye",
+    "Basin_Status": "FULLY_CONTAINED"
+  },
+  {
+    "Name": "Ozentari",
+    "Group": "reservoir_western_bank",
+    "Lat": 13.23,
+    "Lon": 38.72,
+    "Region": "Amhara",
+    "Zone": "Wag Himra",
+    "Woreda": "Abergele",
+    "Kebele": "Embadago",
+    "Basin_Status": "FULLY_CONTAINED"
+  },
+  {
+    "Name": "Missadi",
+    "Group": "reservoir_western_bank",
+    "Lat": 13.24,
+    "Lon": 38.78,
+    "Region": "Tigray",
+    "Zone": "Central Tigray",
+    "Woreda": "Tanqua Abergele",
+    "Kebele": "Felege Hiwet",
+    "Basin_Status": "FULLY_CONTAINED"
+  },
+  {
+    "Name": "Muchera",
+    "Group": "reservoir_western_bank",
+    "Lat": 13.28,
+    "Lon": 38.68,
+    "Region": "Amhara",
+    "Zone": "Wag Himra",
+    "Woreda": "Abergele",
+    "Kebele": "Debi",
+    "Basin_Status": "FULLY_CONTAINED"
+  },
+  {
+    "Name": "Agora",
+    "Group": "north_south_road_corridor",
+    "Lat": 13.3,
+    "Lon": 39.0,
+    "Region": "Tigray",
+    "Zone": "Central Tigray",
+    "Woreda": "Tanqua Abergele",
+    "Kebele": "Mearay Town",
+    "Basin_Status": "FULLY_CONTAINED"
+  },
+  {
+    "Name": "Yechila",
+    "Group": "north_south_road_corridor",
+    "Lat": 13.25,
+    "Lon": 38.98,
+    "Region": "Tigray",
+    "Zone": "Central Tigray",
+    "Woreda": "Tanqua Abergele",
+    "Kebele": "Mearay Town",
+    "Basin_Status": "FULLY_CONTAINED"
+  },
+  {
+    "Name": "Finarwa",
+    "Group": "north_south_road_corridor",
+    "Lat": 13.19,
+    "Lon": 39.0,
+    "Region": "Amhara",
+    "Zone": "Wag Himra",
+    "Woreda": "Abergele",
+    "Kebele": "Arsege",
+    "Basin_Status": "FULLY_CONTAINED"
+  },
+  {
+    "Name": "Bolda",
+    "Group": "north_south_road_corridor",
+    "Lat": 13.16,
+    "Lon": 38.98,
+    "Region": "Amhara",
+    "Zone": "Wag Himra",
+    "Woreda": "Abergele",
+    "Kebele": "Arsege",
+    "Basin_Status": "FULLY_CONTAINED"
+  },
+  {
+    "Name": "Abergele (Nirak)",
+    "Group": "north_south_road_corridor",
+    "Lat": 13.08,
+    "Lon": 38.98,
+    "Region": "Amhara",
+    "Zone": "Wag Himra",
+    "Woreda": "Abergele",
+    "Kebele": "Marenet",
+    "Basin_Status": "FULLY_CONTAINED"
+  },
+  {
+    "Name": "Crustaba",
+    "Group": "interior_settlement",
+    "Lat": 13.2,
+    "Lon": 38.92,
+    "Region": "Amhara",
+    "Zone": "Wag Himra",
+    "Woreda": "Abergele",
+    "Kebele": "Arsege",
+    "Basin_Status": "FULLY_CONTAINED"
+  },
+  {
+    "Name": "Adeseb",
+    "Group": "interior_settlement",
+    "Lat": 13.27,
+    "Lon": 38.83,
+    "Region": "Tigray",
+    "Zone": "Central Tigray",
+    "Woreda": "Tanqua Abergele",
+    "Kebele": "Felege Hiwet",
+    "Basin_Status": "FULLY_CONTAINED"
+  },
+  {
+    "Name": "Guftamlo",
+    "Group": "interior_settlement",
+    "Lat": 13.11,
+    "Lon": 38.86,
+    "Region": "Amhara",
+    "Zone": "Wag Himra",
+    "Woreda": "Abergele",
+    "Kebele": "Telare",
+    "Basin_Status": "FULLY_CONTAINED"
+  },
+  {
+    "Name": "Hidmo",
+    "Group": "interior_settlement",
+    "Lat": 13.33,
+    "Lon": 38.9,
+    "Region": "Tigray",
+    "Zone": "Central Tigray",
+    "Woreda": "Tanqua Abergele",
+    "Kebele": "Hibiret",
+    "Basin_Status": "FULLY_CONTAINED"
+  },
+  {
+    "Name": "Jijike",
+    "Group": "interior_settlement",
+    "Lat": 13.44,
+    "Lon": 38.86,
+    "Region": "Tigray",
+    "Zone": "Central Tigray",
+    "Woreda": "Tanqua Abergele",
+    "Kebele": "Tsekeme",
+    "Basin_Status": "FULLY_CONTAINED"
+  },
+  {
+    "Name": "Gera",
+    "Group": "interior_settlement",
+    "Lat": 13.35,
+    "Lon": 39.05,
+    "Region": "Tigray",
+    "Zone": "South Tigray",
+    "Woreda": "Seharti Samre",
+    "Kebele": "Chliesret",
+    "Basin_Status": "FULLY_CONTAINED"
+  }
+]

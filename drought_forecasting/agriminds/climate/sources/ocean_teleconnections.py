@@ -30,6 +30,7 @@ and NOAA Climate Prediction Center (CPC) operational observational streams:
 from __future__ import annotations
 
 import json
+import math
 import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -41,11 +42,21 @@ from loguru import logger
 
 from agriminds.climate.enso import classify_enso_phase
 from agriminds.climate.sources.base import ClimateDataSource, IngestionResult
-from agriminds.db.models import OceanAtmosphereIndexRecord, get_session
+from agriminds.db.models import (
+    OceanAtmosphereIndexRecord,
+    Nino34HadISSTMonthlyRecord,
+    Nino34HadISSTSeasonalAnnualRecord,
+    ENSORecord,
+    get_session,
+)
 
 # Authoritative NOAA live feeds
 NOAA_URLS = {
-    "Nino3.4": "https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt",
+    "Nino3.4_HadISST": "https://psl.noaa.gov/data/timeseries/month/data/nino34.long.anom.data",
+    "Nino3.4_HadISST_CSV": "https://psl.noaa.gov/data/timeseries/month/data/nino34.long.anom.csv",
+    "Nino3.4_ERSST": "https://psl.noaa.gov/data/correlation/nina34.anom.data",
+    "ONI_Official": "https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt",
+    "Nino3.4": "https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt",  # Backward compatibility
     "IOD_DMI": "https://psl.noaa.gov/gcos_wgsp/Timeseries/Data/dmi.had.long.data",
     "TNA": "https://psl.noaa.gov/data/correlation/tna.data",
     "TSA": "https://psl.noaa.gov/data/correlation/tsa.data",
@@ -109,7 +120,15 @@ def parse_psl_matrix_data(text: str, missing_threshold: float = -90.0) -> List[T
 
 
 def parse_oni_text(text: str) -> List[Tuple[str, float]]:
-    """Parse NOAA CPC ONI ASCII text file."""
+    """
+    Parse NOAA CPC ONI ASCII text file.
+    
+    NOTE ON TIME REPRESENTATION:
+    The NOAA CPC Oceanic Niño Index (ONI) consists of 3-month rolling mean SST anomalies.
+    Following standard climatological convention, each 3-month season is timestamped to its
+    centered middle month (e.g. DJF -> Jan 01, JFM -> Feb 01, FMA -> Mar 01).
+    These values represent rolling 3-month ONI anomalies, NOT independent monthly SST anomalies.
+    """
     lines = text.splitlines()
     records = []
     month_map = {
@@ -120,14 +139,331 @@ def parse_oni_text(text: str) -> List[Tuple[str, float]]:
         parts = line.strip().split()
         if len(parts) >= 4:
             seas, yr_str, total_str, anom_str = parts[0], parts[1], parts[2], parts[3]
+            m = month_map.get(seas.strip().upper())
+            if m is None:
+                continue  # Reject unknown season labels or malformed rows
             try:
                 yr = int(yr_str)
-                m = month_map.get(seas, 1)
+                if yr < 1800 or yr > 2200:
+                    continue
+                total_val = float(total_str)
                 anom = float(anom_str)
+                if not (math.isfinite(total_val) and math.isfinite(anom)):
+                    continue
                 records.append((f"{yr:04d}-{m:02d}-01", round(anom, 2)))
-            except (ValueError, KeyError):
+            except (ValueError, TypeError):
                 continue
     return records
+
+
+def parse_oni_detailed(text: str) -> List[Dict[str, Any]]:
+    """
+    Detailed parser for NOAA CPC ONI ASCII text file.
+    Preserves season label, center month, and period type for audit and data provenance.
+    Strictly validates season labels, numeric years, and finite anomaly values.
+    """
+    lines = text.splitlines()
+    records = []
+    month_map = {
+        "DJF": 1, "JFM": 2, "FMA": 3, "MAM": 4, "AMJ": 5, "MJJ": 6,
+        "JJA": 7, "JAS": 8, "ASO": 9, "SON": 10, "OND": 11, "NDJ": 12,
+    }
+    rejected_rows = []
+    for line_idx, line in enumerate(lines[1:], start=2):
+        parts = line.strip().split()
+        if not parts:
+            continue
+        if len(parts) < 4:
+            rejected_rows.append({"line": line_idx, "content": line, "reason": "Insufficient columns"})
+            continue
+        seas, yr_str, total_str, anom_str = parts[0], parts[1], parts[2], parts[3]
+        m = month_map.get(seas.strip().upper())
+        if m is None:
+            rejected_rows.append({"line": line_idx, "content": line, "reason": f"Unknown season '{seas}'"})
+            continue
+        try:
+            yr = int(yr_str)
+            if yr < 1800 or yr > 2200:
+                rejected_rows.append({"line": line_idx, "content": line, "reason": f"Year out of bounds '{yr}'"})
+                continue
+            total_val = float(total_str)
+            anom_val = float(anom_str)
+            if not (math.isfinite(total_val) and math.isfinite(anom_val)):
+                rejected_rows.append({"line": line_idx, "content": line, "reason": "Non-finite total or anomaly"})
+                continue
+            records.append({
+                "date": f"{yr:04d}-{m:02d}-01",
+                "season": seas.strip().upper(),
+                "year": yr,
+                "center_month": m,
+                "total_sst": round(total_val, 2),
+                "oni_anom": round(anom_val, 2),
+                "period_type": "3m_running_mean",
+                "source_file": "oni.ascii.txt",
+            })
+        except (ValueError, TypeError) as exc:
+            rejected_rows.append({"line": line_idx, "content": line, "reason": f"Parse error: {exc}"})
+            continue
+
+    if rejected_rows:
+        logger.debug(f"parse_oni_detailed: {len(rejected_rows)} rows rejected during parsing.")
+
+    return records
+
+
+def download_and_ingest_hadisst_nino34(
+    data_dir: Optional[Path] = None,
+    db_session: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """
+    Downloads NOAA PSL HadISST monthly Niño 3.4 SST anomaly series (1870–present),
+    persists monthly observations into nino34_hadisst_monthly, derives seasonal and
+    annual summaries into nino34_hadisst_seasonal_annual, and calculates statistical
+    validation metrics against enso_historical (1990–2023) WITHOUT modifying enso_historical.
+    """
+    import time as pytime
+    t0 = pytime.time()
+    target_dir = data_dir or CACHE_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
+    cache_path = target_dir / "nino34.long.anom.data"
+
+    # 1. Fetch live text or fallback to cached disk file
+    content = fetch_noaa_text(NOAA_URLS["Nino3.4_HadISST"], timeout=10)
+    if not content and cache_path.exists():
+        content = cache_path.read_text(encoding="utf-8")
+
+    if not content:
+        raise RuntimeError("Failed to fetch or load NOAA PSL HadISST Niño 3.4 dataset.")
+
+    try:
+        cache_path.write_text(content, encoding="utf-8")
+    except Exception:
+        pass
+
+    # 2. Parse matrix (1870 to present)
+    lines = content.splitlines()
+    if not lines:
+        raise ValueError("Empty HadISST Niño 3.4 data file.")
+
+    header_parts = lines[0].strip().split()
+    start_yr, end_yr = int(header_parts[0]), int(header_parts[1])
+
+    monthly_records = []
+    for line in lines[1:]:
+        parts = line.strip().split()
+        if not parts:
+            continue
+        try:
+            yr = int(parts[0])
+            if yr < start_yr or yr > end_yr:
+                continue
+            vals = [float(p) for p in parts[1:13]]
+            for m_idx, val in enumerate(vals, start=1):
+                if val > -90.0:  # Valid anomaly
+                    date_str = f"{yr:04d}-{m_idx:02d}-01"
+                    monthly_records.append({
+                        "year": yr,
+                        "month": m_idx,
+                        "date": date_str,
+                        "nino34_anom": round(val, 3),
+                        "phase": classify_enso_phase(val),
+                    })
+        except (ValueError, IndexError):
+            continue
+
+    # 3. Derive Seasonal & Annual Summaries
+    monthly_dict = {(r["year"], r["month"]): r["nino34_anom"] for r in monthly_records}
+    seasonal_records = []
+
+    for yr in range(start_yr, end_yr + 1):
+        # DJF: Dec (yr-1), Jan (yr), Feb (yr)
+        djf_vals = [monthly_dict.get((yr - 1, 12)), monthly_dict.get((yr, 1)), monthly_dict.get((yr, 2))]
+        djf_valid = [v for v in djf_vals if v is not None]
+        djf_anom = round(float(np.mean(djf_valid)), 3) if len(djf_valid) == 3 else None
+
+        # MAM: Mar, Apr, May
+        mam_vals = [monthly_dict.get((yr, 3)), monthly_dict.get((yr, 4)), monthly_dict.get((yr, 5))]
+        mam_valid = [v for v in mam_vals if v is not None]
+        mam_anom = round(float(np.mean(mam_valid)), 3) if len(mam_valid) == 3 else None
+
+        # JJA: Jun, Jul, Aug
+        jja_vals = [monthly_dict.get((yr, 6)), monthly_dict.get((yr, 7)), monthly_dict.get((yr, 8))]
+        jja_valid = [v for v in jja_vals if v is not None]
+        jja_anom = round(float(np.mean(jja_valid)), 3) if len(jja_valid) == 3 else None
+
+        # SON: Sep, Oct, Nov
+        son_vals = [monthly_dict.get((yr, 9)), monthly_dict.get((yr, 10)), monthly_dict.get((yr, 11))]
+        son_valid = [v for v in son_vals if v is not None]
+        son_anom = round(float(np.mean(son_valid)), 3) if len(son_valid) == 3 else None
+
+        # Annual: Jan - Dec
+        ann_vals = [monthly_dict.get((yr, m)) for m in range(1, 13)]
+        ann_valid = [v for v in ann_vals if v is not None]
+        ann_anom = round(float(np.mean(ann_valid)), 3) if len(ann_valid) >= 10 else None
+
+        if any(v is not None for v in [djf_anom, mam_anom, jja_anom, son_anom, ann_anom]):
+            seasonal_records.append({
+                "year": yr,
+                "nino34_djf": djf_anom,
+                "nino34_mam": mam_anom,
+                "nino34_jja": jja_anom,
+                "nino34_son": son_anom,
+                "nino34_annual": ann_anom,
+                "n_months_valid": len(ann_valid),
+                "source": "NOAA_PSL_HadISST",
+                "climatology_base": "1981-2010",
+            })
+
+    # 4. Persist to Database (preserving enso_historical)
+    session_provided = db_session is not None
+    db = db_session or get_session()
+    n_monthly_stored = 0
+    n_seasonal_stored = 0
+
+    try:
+        # Ingest monthly records
+        for m_rec in monthly_records:
+            existing_m = (
+                db.query(Nino34HadISSTMonthlyRecord)
+                .filter(Nino34HadISSTMonthlyRecord.date == m_rec["date"])
+                .first()
+            )
+            if not existing_m:
+                db.add(Nino34HadISSTMonthlyRecord(
+                    date=m_rec["date"],
+                    year=m_rec["year"],
+                    month=m_rec["month"],
+                    nino34_anom=m_rec["nino34_anom"],
+                    phase=m_rec["phase"],
+                    source_id="NOAA_PSL_HadISST_Monthly",
+                    units="degC",
+                    climatology_base="1981-2010",
+                ))
+                n_monthly_stored += 1
+            else:
+                existing_m.nino34_anom = m_rec["nino34_anom"]
+                existing_m.phase = m_rec["phase"]
+
+            # Also maintain clean representation in ocean_atmosphere_indices
+            existing_oai = (
+                db.query(OceanAtmosphereIndexRecord)
+                .filter(
+                    OceanAtmosphereIndexRecord.index_name == "Nino3.4_Monthly",
+                    OceanAtmosphereIndexRecord.date == m_rec["date"],
+                )
+                .first()
+            )
+            if not existing_oai:
+                db.add(OceanAtmosphereIndexRecord(
+                    date=m_rec["date"],
+                    index_name="Nino3.4_Monthly",
+                    value=m_rec["nino34_anom"],
+                    unit="°C",
+                    phase=m_rec["phase"],
+                    source_id="NOAA_PSL_HADISST",
+                ))
+
+        # Ingest seasonal & annual records
+        for s_rec in seasonal_records:
+            existing_s = (
+                db.query(Nino34HadISSTSeasonalAnnualRecord)
+                .filter(Nino34HadISSTSeasonalAnnualRecord.year == s_rec["year"])
+                .first()
+            )
+            if not existing_s:
+                db.add(Nino34HadISSTSeasonalAnnualRecord(
+                    year=s_rec["year"],
+                    nino34_djf=s_rec["nino34_djf"],
+                    nino34_mam=s_rec["nino34_mam"],
+                    nino34_jja=s_rec["nino34_jja"],
+                    nino34_son=s_rec["nino34_son"],
+                    nino34_annual=s_rec["nino34_annual"],
+                    n_months_valid=s_rec["n_months_valid"],
+                    source="NOAA_PSL_HadISST",
+                    climatology_base="1981-2010",
+                ))
+                n_seasonal_stored += 1
+            else:
+                existing_s.nino34_djf = s_rec["nino34_djf"]
+                existing_s.nino34_mam = s_rec["nino34_mam"]
+                existing_s.nino34_jja = s_rec["nino34_jja"]
+                existing_s.nino34_son = s_rec["nino34_son"]
+                existing_s.nino34_annual = s_rec["nino34_annual"]
+                existing_s.n_months_valid = s_rec["n_months_valid"]
+
+        db.commit()
+
+        # 5. Statistical Validation against enso_historical (1990–2023)
+        hist_rows = (
+            db.query(ENSORecord)
+            .filter(ENSORecord.year >= 1990, ENSORecord.year <= 2023)
+            .order_by(ENSORecord.year)
+            .all()
+        )
+        validation_metrics = {}
+        if hist_rows:
+            had_by_yr = {r["year"]: r for r in seasonal_records}
+            metrics = {
+                "djf": {"hist": [], "had": []},
+                "mam": {"hist": [], "had": []},
+                "jja": {"hist": [], "had": []},
+                "son": {"hist": [], "had": []},
+                "annual": {"hist": [], "had": []},
+            }
+            for hr in hist_rows:
+                y = hr.year
+                if y in had_by_yr:
+                    for col in ["djf", "mam", "jja", "son", "annual"]:
+                        v_h = getattr(hr, f"nino34_{col}")
+                        v_d = had_by_yr[y].get(f"nino34_{col}")
+                        if v_h is not None and v_d is not None:
+                            metrics[col]["hist"].append(v_h)
+                            metrics[col]["had"].append(v_d)
+
+            for col, pair in metrics.items():
+                if len(pair["hist"]) > 5:
+                    h_arr = np.array(pair["hist"])
+                    d_arr = np.array(pair["had"])
+                    r_val = float(np.corrcoef(h_arr, d_arr)[0, 1])
+                    mae_val = float(np.mean(np.abs(h_arr - d_arr)))
+                    rmse_val = float(np.sqrt(np.mean((h_arr - d_arr)**2)))
+                    bias_val = float(np.mean(d_arr - h_arr))
+                    validation_metrics[col] = {
+                        "n_paired_years": len(h_arr),
+                        "pearson_r": round(r_val, 4),
+                        "mae_degC": round(mae_val, 3),
+                        "rmse_degC": round(rmse_val, 3),
+                        "mean_bias_degC": round(bias_val, 3),
+                        "agreement_assessment": "EXCELLENT" if r_val >= 0.95 else ("GOOD" if r_val >= 0.85 else "MODERATE"),
+                    }
+
+        logger.success(
+            f"Ingested NOAA PSL HadISST Niño 3.4: {len(monthly_records)} monthly records (1870–present), "
+            f"{len(seasonal_records)} seasonal summaries. Validation vs enso_historical (N={len(hist_rows)}): "
+            f"DJF r={validation_metrics.get('djf', {}).get('pearson_r')}, "
+            f"JJA r={validation_metrics.get('jja', {}).get('pearson_r')}."
+        )
+
+        return {
+            "status": "SUCCESS",
+            "dataset": "NOAA_PSL_HadISST_Nino34",
+            "period": f"{start_yr} to {end_yr}",
+            "monthly_records_parsed": len(monthly_records),
+            "monthly_records_stored": n_monthly_stored,
+            "seasonal_years_derived": len(seasonal_records),
+            "seasonal_records_stored": n_seasonal_stored,
+            "enso_historical_preserved": True,
+            "validation_vs_enso_historical_1990_2023": validation_metrics,
+            "duration_seconds": round(pytime.time() - t0, 2),
+        }
+
+    except Exception as exc:
+        db.rollback()
+        logger.error(f"Failed to ingest HadISST Niño 3.4: {exc}")
+        raise
+    finally:
+        if not session_provided:
+            db.close()
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -232,6 +568,13 @@ def compute_multi_ocean_coupled_risk(
              ("Atlantic gradient enhancing westerly moisture advection" if atlantic_gradient > 0.2 else
               "Climatologically neutral multi-ocean state"))
         ),
+        "is_calibrated_probability": False,
+        "score_type": "heuristic_coupled_index",
+        "methodology": (
+            "Heuristic linear alignment index based on expert synoptic rules (0–100), "
+            "NOT an empirical or calibrated drought probability. For calibrated probabilities, "
+            "use Bayesian predictive inference or logistic regression."
+        ),
     }
 
 
@@ -252,35 +595,45 @@ class MultiOceanIngestionEngine:
         logger.info("Starting Multi-Ocean Ingestion Sync (Pacific, Indian, Atlantic)...")
         results = {}
 
-        # 1. Pacific Niño 3.4
-        nino_text = fetch_noaa_text(NOAA_URLS["Nino3.4"])
-        if nino_text:
-            nino_records = parse_oni_text(nino_text)
-            n_stored = self._persist_records("Nino3.4", nino_records, "NOAA_CPC_ONI", classify_enso_phase)
-            results["pacific_nino34"] = {"fetched": len(nino_records), "stored": n_stored}
+        # 1. Pacific Niño 3.4 (HadISST Long-Term Series 1870–present)
+        try:
+            hadisst_res = download_and_ingest_hadisst_nino34()
+            results["pacific_hadisst_nino34"] = hadisst_res
+        except Exception as e:
+            logger.warning(f"HadISST Niño 3.4 ingestion failed: {e}")
+            results["pacific_hadisst_nino34"] = {"status": "FAILED", "error": str(e)}
 
-        # 2. Indian Ocean Dipole (DMI)
+        # 2. Pacific ONI (3-month rolling mean)
+        nino_text = fetch_noaa_text(NOAA_URLS["ONI_Official"])
+        if nino_text:
+            oni_records = parse_oni_text(nino_text)
+            n_stored = self._persist_records("ONI", oni_records, "NOAA_CPC_ONI_OFFICIAL", classify_enso_phase)
+            # Also maintain backward-compatible alias "Nino3.4"
+            self._persist_records("Nino3.4", oni_records, "NOAA_CPC_ONI_OFFICIAL", classify_enso_phase)
+            results["pacific_oni"] = {"fetched": len(oni_records), "stored": n_stored}
+
+        # 3. Indian Ocean Dipole (DMI)
         dmi_text = fetch_noaa_text(NOAA_URLS["IOD_DMI"])
         if dmi_text:
             dmi_records = parse_psl_matrix_data(dmi_text)
             n_stored = self._persist_records("IOD_DMI", dmi_records, "NOAA_PSL_DMI", lambda v: classify_iod(v)["phase"])
             results["indian_ocean_dmi"] = {"fetched": len(dmi_records), "stored": n_stored}
 
-        # 3. Tropical North Atlantic (TNA)
+        # 4. Tropical North Atlantic (TNA)
         tna_text = fetch_noaa_text(NOAA_URLS["TNA"])
         if tna_text:
             tna_records = parse_psl_matrix_data(tna_text)
             n_stored = self._persist_records("TNA", tna_records, "NOAA_PSL_TNA", lambda v: "Warm TNA" if v > 0.2 else ("Cool TNA" if v < -0.2 else "Neutral"))
             results["atlantic_tna"] = {"fetched": len(tna_records), "stored": n_stored}
 
-        # 4. Tropical South Atlantic (TSA)
+        # 5. Tropical South Atlantic (TSA)
         tsa_text = fetch_noaa_text(NOAA_URLS["TSA"])
         if tsa_text:
             tsa_records = parse_psl_matrix_data(tsa_text)
             n_stored = self._persist_records("TSA", tsa_records, "NOAA_PSL_TSA", lambda v: "Warm TSA" if v > 0.2 else ("Cool TSA" if v < -0.2 else "Neutral"))
             results["atlantic_tsa"] = {"fetched": len(tsa_records), "stored": n_stored}
 
-        # 5. Atlantic Multidecadal Oscillation (AMO)
+        # 6. Atlantic Multidecadal Oscillation (AMO)
         amo_text = fetch_noaa_text(NOAA_URLS["AMO"])
         if amo_text:
             amo_records = parse_psl_matrix_data(amo_text)

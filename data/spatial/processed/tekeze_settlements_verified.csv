@@ -1,0 +1,17 @@
+Name,Group,Lat,Lon,Region,Zone,Woreda,Kebele,Basin_Status
+Tekeze Dam Reservoir,reservoir_western_bank,13.23,38.71,Amhara,Wag Himra,Abergele,Debi,FULLY_CONTAINED
+Tekeze Dam Wall & Powerhouse,reservoir_western_bank,13.357,38.75,Tigray,Central Tigray,Tanqua Abergele,Siye,FULLY_CONTAINED
+Ozentari,reservoir_western_bank,13.23,38.72,Amhara,Wag Himra,Abergele,Embadago,FULLY_CONTAINED
+Missadi,reservoir_western_bank,13.24,38.78,Tigray,Central Tigray,Tanqua Abergele,Felege Hiwet,FULLY_CONTAINED
+Muchera,reservoir_western_bank,13.28,38.68,Amhara,Wag Himra,Abergele,Debi,FULLY_CONTAINED
+Agora,north_south_road_corridor,13.3,39.0,Tigray,Central Tigray,Tanqua Abergele,Mearay Town,FULLY_CONTAINED
+Yechila,north_south_road_corridor,13.25,38.98,Tigray,Central Tigray,Tanqua Abergele,Mearay Town,FULLY_CONTAINED
+Finarwa,north_south_road_corridor,13.19,39.0,Amhara,Wag Himra,Abergele,Arsege,FULLY_CONTAINED
+Bolda,north_south_road_corridor,13.16,38.98,Amhara,Wag Himra,Abergele,Arsege,FULLY_CONTAINED
+Abergele (Nirak),north_south_road_corridor,13.08,38.98,Amhara,Wag Himra,Abergele,Marenet,FULLY_CONTAINED
+Crustaba,interior_settlement,13.2,38.92,Amhara,Wag Himra,Abergele,Arsege,FULLY_CONTAINED
+Adeseb,interior_settlement,13.27,38.83,Tigray,Central Tigray,Tanqua Abergele,Felege Hiwet,FULLY_CONTAINED
+Guftamlo,interior_settlement,13.11,38.86,Amhara,Wag Himra,Abergele,Telare,FULLY_CONTAINED
+Hidmo,interior_settlement,13.33,38.9,Tigray,Central Tigray,Tanqua Abergele,Hibiret,FULLY_CONTAINED
+Jijike,interior_settlement,13.44,38.86,Tigray,Central Tigray,Tanqua Abergele,Tsekeme,FULLY_CONTAINED
+Gera,interior_settlement,13.35,39.05,Tigray,South Tigray,Seharti Samre,Chliesret,FULLY_CONTAINED

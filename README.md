@@ -1,144 +1,139 @@
-# Spatiotemporal Hybrid ResNet-CNN + XGBoost Drought Forecasting Architecture
+# AI-DREWS: Tekezé River Basin Drought Forecasting & Climate Reconstruction Pipeline
 
-[![Hugging Face Models & Data](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Models%20%26%20Data-blue)](https://huggingface.co/aykgeh/drought_forecasting_tekeze_basin)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-green.svg)](https://www.python.org/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Target Basin](https://img.shields.io/badge/Basin-Tekeze%20River%20Canyon-orange.svg)]()
-[![Region](https://img.shields.io/badge/Location-Central%20Tigray%2C%20Ethiopia-red.svg)]()
+[![Target Basin](https://img.shields.io/badge/Basin-Tekezé%20River%20Basin%20(67%2C135.4%20km²)-orange.svg)]()
+[![Region](https://img.shields.io/badge/Location-Northern%20Ethiopia-red.svg)]()
+[![Scientific Audit Status](https://img.shields.io/badge/Audit%20Status-Gate%201%20Passed-brightgreen.svg)]()
 
-> **Study Area:** Yechila (Tanqua) Abergelle Woreda & Tekeze River Basin, Central Tigray Zone, Northern Ethiopia  
-> **Temporal Coverage:** 1990 – 2026 (Operational multi-decadal record)  
-> **Target Index:** Self-Calibrating Palmer Drought Severity Index ($\text{sc\_PDSI}$) & Root-Zone Soil Moisture Deficit ($0-28\text{ cm}$)  
-> **Model & Data Weights on Hugging Face:** [aykgeh/drought_forecasting_tekeze_basin](https://huggingface.co/aykgeh/drought_forecasting_tekeze_basin)
+> **Research Focus:** AI-Driven Drought Early Warning System (AI-DREWS) for the Tekezé River Basin ($67,135.4\text{ km}^2$), Northern Ethiopia.  
+> **Target Historical Period:** 1981–2024 (528 consecutive calendar months).  
+> **Target Drought Indices:** Standardized Precipitation-Evapotranspiration Index (SPEI-3, Generalized Logistic) & Standardized Precipitation Index (SPI-3, 2-parameter Gamma).  
+> **Associated Repositories:** [GitHub (aykahsay/drought_forecasting_tekeze_basin)](https://github.com/aykahsay/drought_forecasting_tekeze_basin) | [Hugging Face (aykgeh/drought_forecasting_tekeze_basin)](https://huggingface.co/aykgeh/drought_forecasting_tekeze_basin)
 
 ---
 
-## 1. Architectural Motivation & Theoretical Framework
+## Scientific Audit & Methodological Integrity Notice
 
-Predicting agricultural drought in the deeply incised, semi-arid topography of Central Tigray requires resolving two distinct physical regimes operating across disparate scales:
-1. **Local Mesoscale Topography:** 4D spatio-temporal gridded reanalysis tensors ($B \times 12 \times 4 \times 14 \times 16$) capturing root-zone soil water (`swvl1`, `swvl2`), 2m temperature (`t2m`), and precipitation (`tp`) across the Tekeze River canyon ($0.1^\circ$ resolution).
-2. **Planetary Ocean Teleconnections:** Inter-basin Pacific (Niño 3.4), Indian (IOD DMI), and Atlantic (TSA, TNA) sea-surface temperature anomalies and multi-resolution discrete wavelet sub-signals operating on 1-to-6 month lag horizons.
+> [!IMPORTANT]
+> **De-Scoping & Retraction of Preliminary Heuristic Metrics:**  
+> Previous computational prototypes reported inflated predictive metrics ($R^2 > 95\%$) that were generated on uncalibrated datasets containing corrupted timestamps (e.g. forward-shifted 2025 timestamps in legacy NetCDF files) and synthetic temperature climatologies.  
+> Following an exhaustive scientific audit (see [AI_DREWS_SCIENTIFIC_HANDOVER_REPORT.md](AI_DREWS_SCIENTIFIC_HANDOVER_REPORT.md)), all unverified figures, mock forecast checkpoints, and synthetic metrics have been **formally removed**. Predictive machine learning models are strictly paused until the 1981–2024 monthly climate target passes multi-gate observational verification.
+
+---
+
+## Multi-Gate Verification Architecture
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│  4D Gridded NetCDF Cube (swvl1, swvl2, t2m, tp) [12 × 4 × 14 × 16]     │
+│  Gate 0: Catchment Geometry & Topological Verification                │
+│  • Verified 67,135.4 km² Complete Tekezé Basin (HydroBASINS Lev 5/6/7) │
+│  • Full transboundary Ethiopian sub-basin (resolving truncated HDX)   │
+│  • Status: VERIFIED & ACCEPTED                                        │
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
                                    ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│  2D ResNet-CNN Spatial Backbone with Spatial Attention                 │
-│  • Compresses 4D gridded tensors into 3 primary spatial modes          │
-│  • Captures Tekeze canyon micro-climate & elevation lapse rates        │
-│  • Contributes 26.6% to predictive weight                              │
+│  Gate 1: Temperature-Source Audit & Provenance Verification            │
+│  • Primary Strategy: ECMWF ERA5-Land (9 km hourly extrema derivation)  │
+│  • Independent Comparison: NOAA CPC Global Unified Temperature (0.5°)  │
+│  • Jensen's Inequality: Strict daily extrema requirement for PET      │
+│  • GLO Parameterization & CDF complete pair validation (|error| < 1e-15)│
+│  • Synthetic fallback strictly disabled (MissingTemperatureDataError)  │
+│  • Status: 6 OF 6 ACCEPTANCE ITEMS COMPLETE (October 2026)             │
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
                                    ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│  XGBoost Multi-Scale Fusion Regressor                                  │
-│  • Ingests CNN spatial modes + Oceanic Teleconnection Lags (73.4%)     │
-│  • Pacific Niño 3.4 Wavelets (3-5yr trend, 2yr cycle, τ=3-5m)          │
-│  • Atlantic Gradient (TNA - TSA, τ=1-2m) & South Atlantic TSA (τ=2-3m) │
-│  • Indian Ocean Dipole (IOD, τ=2-3m) & Soil Memory (sc_PDSI t-1, 1yr)  │
+│  Gate 2: Full 1981–2024 Monthly Climate Target Reconstruction          │
+│  • CHIRPS v2.0 (0.05°) monthly precipitation (>= 95% basin coverage)   │
+│  • Hargreaves-Samani (1985) & Thornthwaite (1948) monthly PET          │
+│  • Continuous rolling 12-calendar-month SPEI-3 & SPI-3 engines         │
+│  • Fixed calibration normal: WMO 1991–2020 baseline                   │
+│  • Status: IN PROGRESS (Paused for Gate 1 Review)                     │
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
                                    ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│  Operational Early Warning (RMSE = 0.229 | R² = 97.9% | r = 0.995)     │
-│  • 2026 Severe Drought Verification: -2.36 Forecast (Real: -2.76)      │
+│  Gate 3: Teleconnection Analysis & Machine Learning Benchmarking      │
+│  • Pacific (Niño 3.4), Indian (DMI), Atlantic (TNA, TSA) teleconnection│
+│  • Rigorous temporal train/validation/test holdout (>= 2006–2023)      │
+│  • Probabilistic evaluation against dynamic climatology (Brier Score)  │
+│  • Status: PENDING GATE 2 COMPLETION                                  │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Quantitative Benchmark Across 4D-Compatible CNN Architectures
+## Gate 1 Temperature Audit Highlights
 
-All benchmarked architectures ingest the 4-channel NetCDF reanalysis cube through the ResNet-CNN spatial backbone:
-
-| Model Architecture | 4D Spatial Handling | Temporal & Climate Engine | Root Mean Squared Error (RMSE) | Variance Explained ($R^2$) | Pearson Correlation ($r$) | Error Reduction vs Spatial CNN |
-| :--- | :--- | :--- | :---: | :---: | :---: | :---: |
-| **Spatial ResNet-CNN** | 2D Conv + Spatial Attention | Dense Output Head | $0.669$ | $81.9\%$ | $0.935$ | Baseline |
-| **ResNet-CNN + BiLSTM** | 2D Conv + Spatial Attention | Bidirectional LSTM Sequence | $0.507$ | $89.6\%$ | $0.962$ | $-24.2\%$ |
-| **CNN + BiLSTM + Fourier** | 2D Conv + Spatial Attention | BiLSTM + Fourier FFT Frequencies | $0.385$ | $94.0\%$ | $0.975$ | $-42.5\%$ |
-| **Proposed Hybrid ResNet-CNN + XGBoost** | **2D Conv + Spatial Attention** | **XGBoost on Multi-Ocean Lags & Modes** | **0.229** | **97.9%** | **0.995** | **-65.8%** |
-
----
-
-## 3. Key Findings
-
-1. **Why Pure XGBoost Fails on 4-Channel Data:**
-   * Decision trees have zero spatial inductive bias; flattening a $14 \times 16 \times 4$ grid into 896 scalar columns treats neighboring pixels identically to opposite corners of the map and causes severe $p \gg n$ overfitting.
-   * Coupling the **2D ResNet-CNN** as a spatial dimensionality reducer (compressing 896 raw pixel channels into 3 orthogonal spatial modes) solves this fundamental bottleneck.
-2. **Unified Feature Importance Hierarchy:**
-   * **4D CNN Spatial Convolutions account for $26.6\%$ total weight**, with Spatial Mode 3 (Tekeze valley moisture anomaly) ranking #1 overall at **$24.03\%$**.
-   * **Planetary Ocean Lags account for $73.4\%$ total weight**, dominated by the South Atlantic TSA ($15.56\%$), Atlantic Inter-Hemispheric Gradient ($15.39\%$), Pacific Niño Wavelet Trend ($12.40\%$), and Niño Wavelet Cycle ($8.81\%$).
-3. **2026 Severe Drought Verification:**
-   * Ground Truth $\text{sc\_PDSI} = \mathbf{-2.76}$ (Severe Drought).
-   * Proposed Hybrid CNN + XGBoost Forecast: $\mathbf{-2.36}$ (Error: $0.40$).
-   * ResNet-CNN + BiLSTM Forecast: $\mathbf{-2.25}$ (Error: $0.51$).
+The Gate 1 deliverable ([docs/temperature_source_and_provenance_audit.md](docs/temperature_source_and_provenance_audit.md)) establishes:
+1. **Source Preservation:** Raw benchmark NetCDF files are permanently preserved in `data/raw/temperature/cpc/`:
+   * `tmax.1984.nc` (87.68 MB, SHA-256: `476fae44066168fab45e76fc98aae9bba22c4f00ea1f18cb6304727dadb7305b`)
+   * `tmin.1984.nc` (89.08 MB, SHA-256: `b14e8bba53532cddcaad6120bbe031f38e0bf4755cf92efb248a92f8ac2fedea`)
+2. **Strict Daily Extrema Requirement (Jensen's Inequality):**
+   $$\mathbb{E}[\sqrt{\Delta T_{\text{daily}}}] < \sqrt{\mathbb{E}[\Delta T_{\text{daily}}]}$$
+   Because $\sqrt{u}$ is concave, substituting monthly mean temperature for daily extrema introduces a systematic **+0.5% to +1.4% positive bias** in monthly PET. Daily extrema must be derived at daily timesteps before monthly aggregation.
+3. **Exact Basin Spatial Masking:**
+   Tekezé polygon intersection across the $0.5^\circ$ NOAA CPC grid covers 38 active cells with exact fractional area weighting and cosine-latitude spherical area adjustment, achieving 99.73% annual valid coverage.
+4. **Zero Synthetic Heuristics in Production:**
+   Calls to `get_verified_monthly_temperature()` without real observational NetCDFs now explicitly raise `MissingTemperatureDataError`.
 
 ---
 
-## 4. Repository Structure
+## Mathematical Formulation: Generalized Logistic (GLO) Distribution
+
+For drought monitoring via SPEI, Hosking's (1990) Generalized Logistic distribution is fitted via unbiased sample L-moments:
+
+* **Unbiased Probability-Weighted Moments:**
+  $$b_r = \frac{1}{n} \sum_{i=1}^n \frac{\binom{i-1}{r}}{\binom{n-1}{r}} x_{(i)}$$
+* **Sample L-Moments:**
+  $$\lambda_1 = b_0, \quad \lambda_2 = 2b_1 - b_0, \quad \tau_3 = \frac{6b_2 - 6b_1 + b_0}{2b_1 - b_0}$$
+* **Parameters:**
+  $$k = -\tau_3, \quad \alpha = \frac{\lambda_2 \sin(k\pi)}{k\pi}, \quad \xi = \lambda_1 - \frac{\alpha}{k}\left(1 - \frac{k\pi}{\sin(k\pi)}\right)$$
+* **Closed-Form CDF:**
+  $$F(x) = \frac{1}{1 + \left[1 - \frac{k(x - \xi)}{\alpha}\right]^{1/k}}$$
+* **Round-Trip Identity:** $F(x(F)) \equiv F$ confirmed to $|F(x(F)) - F| < 10^{-15}$.
+
+---
+
+## Repository Structure
 
 ```
 drought_forecasting_tekeze_basin/
-├── README.md                                         # Master project documentation
+├── README.md                                         # Audited project documentation
 ├── requirements.txt                                  # Environment dependencies
 ├── .gitignore                                        # Clean git exclusion rules
-├── app_streamlit_abergele.py                         # Operational early warning dashboard
-├── drought_forecasting/
-│   └── agriminds/
-│       ├── ml/
-│       │   ├── train_high_accuracy_cnn_lstm.py       # HighCapacityResNetCNNLSTM implementation
-│       │   ├── cnn_lstm_fourier.py                   # Spectral BiLSTM-Fourier module
-│       │   └── forecast_engine.py                    # Multi-horizon operational engine
-│       ├── models/
-│       │   ├── train_hybrid_cnn_xgboost_model.py     # Master Figure 8 Hybrid pipeline
-│       │   ├── run_full_validation_up_to_2026.py     # Timeline validation suite (1990-2026)
-│       │   └── wavelet_drought_prediction_framework.py
-│       └── ingestion/
-│           ├── storage_aware_downloader.py           # ERA5-Land NetCDF downloader
-│           └── noaa_cpc_ingestion.py                 # NOAA CPC ocean index client
+├── AI_DREWS_SCIENTIFIC_HANDOVER_REPORT.md            # Comprehensive scientific handover audit
 ├── data/
-│   └── processed/
-│       ├── hybrid_cnn_xgboost_architecture_and_validation.png
-│       ├── model_training_with_lag_features.png
-│       ├── lag_time_feature_importance_and_model_training.png
-│       ├── multi_ocean_wavelet_coherence_comparison_1990_2026.png
-│       └── real_drought_prediction_validation_1990_2026.png
-└── docs/
-    ├── academic_research_paper_teleconnection_drought.md
-    └── figure_8_hybrid_cnn_xgboost_architecture_and_validation.md
+│   ├── raw/
+│   │   ├── temperature/
+│   │   │   └── cpc/                                  # Preserved NOAA CPC NetCDF files (1984)
+│   │   └── chirps_monthly/                           # Monthly CHIRPS GeoTIFFs (1981–2024)
+│   └── spatial/
+│       └── processed/
+│           └── tekeze_basin_hydrological_complete.geojson  # Verified 67,135.4 km² catchment
+├── docs/
+│   ├── temperature_source_and_provenance_audit.md    # Gate 1 Deliverable Report
+│   └── data_provenance_and_climate_reconstruction_audit.md # Gate 0 Audit Report
+├── drought_forecasting/
+│   ├── agriminds/
+│   │   └── climate/
+│   │       └── spei_calculator.py                    # Verified GLO & Gamma distribution engine
+│   └── tests/
+│       └── test_climate_reconstruction_and_spei.py   # 11 automated verification unit tests (PASS)
+└── scripts/
+    └── build_verified_tekeze_monthly_climate_1981_2024.py  # Climate target reconstruction pipeline
 ```
 
 ---
 
-## 5. Quickstart & Installation
+## Running the Automated Test Suite
+
+The climate reconstruction and mathematical distribution engines are protected by automated tests:
 
 ```bash
-# Clone the repository
-git clone https://github.com/aykahsay/drought_forecasting_tekeze_basin.git
-cd drought_forecasting_tekeze_basin
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Download model checkpoints and data from Hugging Face
-huggingface-cli download aykgeh/drought_forecasting_tekeze_basin --local-dir ./data_hf
-
-# Launch operational early warning dashboard
-streamlit run app_streamlit_abergele.py
+python -m pytest drought_forecasting/tests/test_climate_reconstruction_and_spei.py -v
 ```
 
----
-
-## 6. Citation
-
-```bibtex
-@article{kahsay2026drought,
-  title={Multi-Ocean Teleconnection Dynamics and Spatiotemporal Hybrid ResNet-CNN + XGBoost Architecture for Long-Lead Drought Early Warning in the Tekeze River Basin},
-  author={Kahsay, Aykahsay and AgriMinds Research Team},
-  journal={Journal of Hydrology / Remote Sensing of Environment},
-  year={2026}
-}
-```
+All 11 tests pass with strict checks on catchment area, fractional area raster weighting, NoData sentinels exclusion, GLO complete pair round-trip recovery, and explicit failure on missing temperature observations.

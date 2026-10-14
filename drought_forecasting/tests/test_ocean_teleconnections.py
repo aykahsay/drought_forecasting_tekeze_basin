@@ -14,6 +14,7 @@ from agriminds.climate.sources.ocean_teleconnections import (
     compute_multi_ocean_coupled_risk,
     parse_psl_matrix_data,
     parse_oni_text,
+    parse_oni_detailed,
     get_multi_ocean_engine,
 )
 
@@ -78,6 +79,52 @@ def test_parse_oni_text():
     assert len(records) == 2
     assert records[0] == ("2024-01-01", 1.85)
     assert records[1] == ("2024-02-01", 1.62)
+
+
+def test_parse_oni_detailed_and_validation():
+    # Test valid season parsing and NDJ year boundary centering
+    text = (
+        "SEAS  YR   TOTAL   ANOM\n"
+        "DJF 2024  28.10   1.85\n"
+        "NDJ 2024  27.40  -0.75\n"
+    )
+    detailed = parse_oni_detailed(text)
+    assert len(detailed) == 2
+    # DJF centered on Jan 01
+    assert detailed[0]["date"] == "2024-01-01"
+    assert detailed[0]["season"] == "DJF"
+    assert detailed[0]["center_month"] == 1
+    assert detailed[0]["oni_anom"] == 1.85
+    assert detailed[0]["period_type"] == "3m_running_mean"
+    # NDJ centered on Dec 01
+    assert detailed[1]["date"] == "2024-12-01"
+    assert detailed[1]["season"] == "NDJ"
+    assert detailed[1]["center_month"] == 12
+    assert detailed[1]["oni_anom"] == -0.75
+
+
+def test_parse_oni_rejects_unknown_seasons_and_malformed():
+    # Test that unknown season labels, non-numeric values, or corrupt rows are safely rejected
+    corrupt_text = (
+        "SEAS  YR   TOTAL   ANOM\n"
+        "UNKNOWN 2024 28.10 1.85\n"     # Unknown season label (must NOT fallback to Jan)
+        "XYZ 2024 28.10 1.85\n"         # Corrupt season
+        "DJF NOT_YEAR 28.10 1.85\n"     # Non-numeric year
+        "MAM 2024 NOT_FLOAT 1.85\n"     # Non-numeric SST
+        "JJA 2024 28.10 NaN\n"           # NaN anomaly
+        "SON 2024 28.10\n"               # Incomplete columns
+        "DJF 2025 27.50 0.85\n"          # Valid row
+    )
+    detailed = parse_oni_detailed(corrupt_text)
+    assert len(detailed) == 1
+    assert detailed[0]["season"] == "DJF"
+    assert detailed[0]["year"] == 2025
+    assert detailed[0]["oni_anom"] == 0.85
+
+    # Also test parse_oni_text
+    simple = parse_oni_text(corrupt_text)
+    assert len(simple) == 1
+    assert simple[0] == ("2025-01-01", 0.85)
 
 
 def test_api_ocean_endpoints(client):

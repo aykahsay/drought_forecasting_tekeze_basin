@@ -1075,6 +1075,7 @@ ETHIOPIA_HIERARCHY_WOREDAS: Dict[str, List[Dict[str, Any]]] = {
 # ────────────────────────────────────────────────────────────────────────────
 # 4. TIER 4: KEBELE LEVEL — LOCAL GROUND TRUTH, WATER POINTS & VILLAGES
 # ────────────────────────────────────────────────────────────────────────────
+ETHIOPIA_HIERARCHY_KEBELES = {
     "tanqua_abergelle": [
         {
             "kebele_id": "yechila_center",

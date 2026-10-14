@@ -80,6 +80,10 @@ class TestNOAAONI:
         assert "weekly_nino34_value" in state
         assert "ethiopia_teleconnection_impact" in state
         assert "historical_baseline_link" in state
+        assert state["operational_state"] in ["LIVE", "CACHED", "DATABASE_LATEST", "STATIC_SAMPLE"]
+        assert "data_age_days" in state
+        assert "retrieval_timestamp" in state
+        assert "source_identifier" in state
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -19,8 +19,19 @@ env/
 *.bin
 *.db
 data/raw/
-*.h5
-*.hdf5
+data/spatial/raw/
+data/spatial/extracted/
+*.zip
+*.shp
+*.dbf
+*.shx
+*.sbn
+*.sbx
+*.cpg
+*.qmd
+*.geojson.gz
+data/spatial/processed/*kebeles*.geojson
+data/spatial/processed/*integrated*.geojson
 
 # IDE & OS files
 .DS_Store
@@ -31,3 +42,4 @@ Thumbs.db
 .user_uploaded/
 *.exe
 Task.txt
+scratch/

@@ -99,22 +99,43 @@ class InMemoryKafkaBroker:
         self._lock = threading.Lock()
         self.total_produced = 0
         self.total_consumed = 0
-        self._history_timestamps: deque = deque(maxlen=500)
+        self._topic_produced_counts: Dict[str, int] = {t: 0 for t in ALL_TOPICS}
+        self._topic_offsets: Dict[str, int] = {t: 0 for t in ALL_TOPICS}
+        # Time-windowed rolling counter: stores (second_bucket_int, count)
+        self._rolling_window_sec = 60
+        self._rolling_counts: deque = deque()  # stores [timestamp_sec_int, count]
+
+    def _record_event_count(self) -> None:
+        now_sec = int(time.time())
+        if self._rolling_counts and self._rolling_counts[-1][0] == now_sec:
+            self._rolling_counts[-1][1] += 1
+        else:
+            self._rolling_counts.append([now_sec, 1])
+        # Purge buckets older than window
+        cutoff = now_sec - self._rolling_window_sec
+        while self._rolling_counts and self._rolling_counts[0][0] <= cutoff:
+            self._rolling_counts.popleft()
 
     def publish(self, message: KafkaMessage) -> None:
         with self._lock:
-            if message.topic not in self._buffers:
-                self._buffers[message.topic] = deque(maxlen=self.max_retention)
-                self._subscribers[message.topic] = []
+            topic = message.topic
+            if topic not in self._buffers:
+                self._buffers[topic] = deque(maxlen=self.max_retention)
+                self._subscribers[topic] = []
+                self._topic_produced_counts[topic] = 0
+                self._topic_offsets[topic] = 0
 
-            message.offset = self.total_produced
+            # Assign per-topic local partition and offset
+            message.offset = self._topic_offsets[topic]
             message.partition = 0
-            self._buffers[message.topic].append(message)
-            self.total_produced += 1
-            now = time.time()
-            self._history_timestamps.append(now)
+            self._topic_offsets[topic] += 1
+            self._topic_produced_counts[topic] += 1
 
-            callbacks = list(self._subscribers[message.topic])
+            self._buffers[topic].append(message)
+            self.total_produced += 1
+            self._record_event_count()
+
+            callbacks = list(self._subscribers[topic])
 
         for cb in callbacks:
             try:
@@ -129,9 +150,13 @@ class InMemoryKafkaBroker:
             if topic not in self._subscribers:
                 self._subscribers[topic] = []
                 self._buffers[topic] = deque(maxlen=self.max_retention)
+                self._topic_produced_counts[topic] = 0
+                self._topic_offsets[topic] = 0
             self._subscribers[topic].append(callback)
 
     def get_recent(self, topic: str, limit: int = 20) -> List[Dict[str, Any]]:
+        if limit <= 0:
+            return []
         with self._lock:
             if topic not in self._buffers:
                 return []
@@ -140,11 +165,13 @@ class InMemoryKafkaBroker:
 
     def get_metrics(self) -> Dict[str, Any]:
         with self._lock:
-            now = time.time()
-            recent_msgs = sum(1 for t in self._history_timestamps if now - t <= 60.0)
-            msg_rate = round(recent_msgs / 60.0, 2)
+            now_sec = int(time.time())
+            cutoff = now_sec - self._rolling_window_sec
+            recent_msgs = sum(cnt for ts, cnt in self._rolling_counts if ts > cutoff)
+            msg_rate = round(recent_msgs / float(self._rolling_window_sec), 2)
 
-            topic_counts = {t: len(buf) for t, buf in self._buffers.items()}
+            buffered_counts = {t: len(buf) for t, buf in self._buffers.items()}
+            total_topic_traffic = dict(self._topic_produced_counts)
             consumer_counts = {t: len(subs) for t, subs in self._subscribers.items()}
 
             return {
@@ -153,8 +180,10 @@ class InMemoryKafkaBroker:
                 "total_produced": self.total_produced,
                 "total_consumed": self.total_consumed,
                 "messages_per_second": msg_rate,
-                "topics": topic_counts,
+                "buffered_message_counts": buffered_counts,
+                "total_topic_traffic": total_topic_traffic,
                 "active_subscribers": consumer_counts,
+                "measurement_window_seconds": self._rolling_window_sec,
             }
 
 
@@ -169,13 +198,16 @@ class KafkaStreamManager:
         self.embedded_broker = InMemoryKafkaBroker()
         self.use_real_kafka = False
         self._real_producer = None
+        self._delivery_stats = {"queued": 0, "delivered": 0, "failed": 0}
+        self._consecutive_failures = 0
+        self._max_consecutive_failures = 3
+        self._connection_state = "INITIALIZING"
         self._init_connection()
 
     def _init_connection(self) -> None:
         """Attempt to connect to a real Apache Kafka cluster with fast socket probe."""
         import socket
         try:
-            # Quick non-blocking socket test (0.05s timeout)
             host, port_str = self.bootstrap_servers.split(":", 1) if ":" in self.bootstrap_servers else (self.bootstrap_servers, "9092")
             port = int(port_str)
             s = socket.create_connection((host, port), timeout=0.05)
@@ -188,16 +220,40 @@ class KafkaStreamManager:
                 key_serializer=lambda k: k.encode("utf-8") if k else None,
                 request_timeout_ms=1000,
                 max_block_ms=1000,
+                acks="all",
             )
             self.use_real_kafka = True
+            self._connection_state = "CONNECTED"
+            self._consecutive_failures = 0
             logger.info(f"Connected to Apache Kafka cluster at {self.bootstrap_servers}")
         except Exception as e:
             self.use_real_kafka = False
             self._real_producer = None
+            self._connection_state = "FALLBACK_EMBEDDED"
             logger.info(
                 f"External Kafka cluster at {self.bootstrap_servers} offline ({e}). "
                 "AI-DREWS embedded high-throughput event broker active with zero downtime."
             )
+
+    def _handle_send_error(self, ex: Exception) -> None:
+        self._delivery_stats["failed"] += 1
+        self._consecutive_failures += 1
+        logger.warning(f"Kafka asynchronous delivery failure ({ex}). Failure count: {self._consecutive_failures}")
+        if self._consecutive_failures >= self._max_consecutive_failures:
+            logger.error(f"Exceeded max consecutive failures ({self._max_consecutive_failures}). Tripping circuit breaker to FALLBACK_EMBEDDED.")
+            self.use_real_kafka = False
+            self._connection_state = "FALLBACK_EMBEDDED"
+
+    def _handle_send_success(self, metadata: Any, msg: KafkaMessage) -> None:
+        self._delivery_stats["delivered"] += 1
+        self._consecutive_failures = 0
+        # Capture actual broker delivery metadata
+        if hasattr(metadata, "topic"):
+            msg.topic = metadata.topic
+        if hasattr(metadata, "partition"):
+            msg.partition = metadata.partition
+        if hasattr(metadata, "offset"):
+            msg.offset = metadata.offset
 
     def publish_event(
         self,
@@ -206,26 +262,34 @@ class KafkaStreamManager:
         key: Optional[str] = None,
         headers: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
-        """Publish an event to a Kafka stream topic."""
+        """Publish an event to a Kafka stream topic with delivery state tracking."""
         msg = KafkaMessage(topic=topic, payload=payload, key=key, headers=headers)
+        delivery_status = "PUBLISHED_LOCAL"
 
         if self.use_real_kafka and self._real_producer:
             try:
-                self._real_producer.send(topic, key=msg.key, value=msg.to_dict())
+                self._delivery_stats["queued"] += 1
+                future = self._real_producer.send(topic, key=msg.key, value=msg.to_dict())
+                future.add_callback(lambda meta: self._handle_send_success(meta, msg))
+                future.add_errback(lambda ex: self._handle_send_error(ex))
+                delivery_status = "QUEUED_EXTERNAL"
             except Exception as e:
-                logger.warning(f"Kafka write failed ({e}); falling back to embedded broker")
-            # Also mirror to embedded broker so in-memory subscribers and dashboard get real-time feed
+                self._handle_send_error(e)
+                delivery_status = "EXTERNAL_WRITE_FAILED_FALLBACK"
+
+            # Always mirror to embedded broker so in-memory subscribers and dashboard get real-time feed
             self.embedded_broker.publish(msg)
         else:
             self.embedded_broker.publish(msg)
 
         return {
-            "status": "PUBLISHED",
+            "status": delivery_status,
             "topic": topic,
             "key": msg.key,
             "offset": msg.offset,
             "partition": msg.partition,
             "timestamp": msg.timestamp,
+            "connection_state": self._connection_state,
             "broker": "real_kafka_cluster" if self.use_real_kafka else "embedded_kafka_bus",
         }
 
