@@ -44,3 +44,5 @@ To prevent premature modeling or reporting of uncalibrated skill, the protocol e
 5. **No Data Re-Labeling:** Gaussian $z$-scores must never be labeled as SPI or SPEI.
 6. **No Pre-Gate Modeling:** Machine learning training and evaluation are strictly prohibited until Gates 1–4 are certified.
 7. **Disambiguation of Drought vs Famine:** Meteorological drought ($\text{SPEI-3} \le -2.0$) represents physical water deficit; it is not a direct substitute for socio-economic food insecurity or famine.
+8. **Continuous Dual-Platform Synchronization:** Every code revision, documentation amendment, audit finding, test suite addition, and data manifest update must be committed and pushed immediately to GitHub (`aykahsay/drought_forecasting_tekeze_basin`, branches `research/verified-tekeze-drought-pipeline` and `main`) and synchronized to Hugging Face Model Hub (`aykgeh/drought_forecasting_tekeze_basin`) to ensure 100% open-science provenance and zero platform divergence.
+

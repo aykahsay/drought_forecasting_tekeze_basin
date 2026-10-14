@@ -43,3 +43,5 @@ Thumbs.db
 *.exe
 Task.txt
 scratch/
+.env
+*.env

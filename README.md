@@ -120,3 +120,18 @@ All 23 tests pass in < 3.0 seconds, certifying:
 6. Continuous 528-month sequence and strict rolling 3-month NaN propagation.
 7. Zero synthetic heuristics in production: missing observational feeds explicitly raise `MissingTemperatureDataError`.
 
+---
+
+## Continuous Dual-Platform Synchronization
+
+All code commits, research documents, gate audits, and test suites are synchronized continuously and atomically between **GitHub** and **Hugging Face Model Hub**:
+
+* **GitHub Repository:** [https://github.com/aykahsay/drought_forecasting_tekeze_basin](https://github.com/aykahsay/drought_forecasting_tekeze_basin)
+* **Hugging Face Model Hub:** [https://huggingface.co/aykgeh/drought_forecasting_tekeze_basin](https://huggingface.co/aykgeh/drought_forecasting_tekeze_basin)
+
+To synchronize any update across both platforms in a single command:
+
+```bash
+python scripts/sync_to_github_and_huggingface.py -m "Descriptive summary of research updates"
+```
+

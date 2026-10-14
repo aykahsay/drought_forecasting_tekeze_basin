@@ -107,3 +107,21 @@ from pathlib import Path
 manifest_path = Path("data/processed/temperature_provenance_manifest.json")
 # Inspect manifest entries and compute local file hashes
 ```
+
+---
+
+### 6. Continuous Dual-Platform Synchronization (GitHub + Hugging Face)
+
+Every modification to code, documentation, mathematical fixtures, or data manifests is synchronized simultaneously to both GitHub and Hugging Face:
+
+```bash
+# Synchronize all updates with a descriptive commit message
+python scripts/sync_to_github_and_huggingface.py -m "Your descriptive update message"
+```
+
+This single command:
+1. Detects uncommitted changes and creates a local git commit.
+2. Pushes the active research branch (`research/verified-tekeze-drought-pipeline`) and updates `main` on GitHub.
+3. Automatically bundles all audited markdown reports, documentation, test suites, calculators, GeoJSON geometries, and dependencies, uploading them to Hugging Face Model Hub (`aykgeh/drought_forecasting_tekeze_basin`).
+4. Verifies remote parity and outputs direct commit verification URLs for both platforms.
+
