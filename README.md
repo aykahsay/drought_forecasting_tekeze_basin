@@ -22,118 +22,101 @@
 
 ---
 
-## Multi-Gate Verification Architecture
+## Multi-Gate Scientific Workflow Architecture (Gates 1–6)
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│  Gate 0: Catchment Geometry & Topological Verification                │
-│  • Verified 67,135.4 km² Complete Tekezé Basin (HydroBASINS Lev 5/6/7) │
-│  • Full transboundary Ethiopian sub-basin (resolving truncated HDX)   │
-│  • Status: VERIFIED & ACCEPTED                                        │
+│  GATE 1: Climate Data Acquisition & Provenance Integrity              │
+│  • Primary: ECMWF ERA5-Land (9 km hourly extrema derivation)           │
+│  • Independent Comparison: NOAA CPC Global Daily Temperature (0.5°)    │
+│  • Strict raw immutability in data/raw/temperature/ & SHA-256 manifest │
+│  • Jensen's Inequality: Preserves daily extrema before PET calculation │
+│  • Status: REPRODUCIBLE DOWNLOADERS READY (1984 Benchmark Certified)   │
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
                                    ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│  Gate 1: Temperature-Source Audit & Provenance Verification            │
-│  • Primary Strategy: ECMWF ERA5-Land (9 km hourly extrema derivation)  │
-│  • Independent Comparison: NOAA CPC Global Unified Temperature (0.5°)  │
-│  • Jensen's Inequality: Strict daily extrema requirement for PET      │
-│  • GLO Parameterization & CDF complete pair validation (|error| < 1e-15)│
-│  • Synthetic fallback strictly disabled (MissingTemperatureDataError)  │
-│  • Status: 6 OF 6 ACCEPTANCE ITEMS COMPLETE (October 2026)             │
+│  GATE 2: Mathematical Implementation Cross-Validation                  │
+│  • Hosking (1990) GLO parameterization & CDF complete pair validation   │
+│  • Standard R lmom/SPEI benchmark fixtures (6 test cases, |err| < 1e-5)│
+│  • McKee/Thom Gamma SPI-3 MLE with zero-precipitation treatment q      │
+│  • Inverse normal conversion (ndtri) with finite clipping [-3.5, 3.5]  │
+│  • Status: PASSED & VALIDATED (5/5 Benchmark Tests Passing)            │
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
                                    ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│  Gate 2: Full 1981–2024 Monthly Climate Target Reconstruction          │
-│  • CHIRPS v2.0 (0.05°) monthly precipitation (>= 95% basin coverage)   │
-│  • Hargreaves-Samani (1985) & Thornthwaite (1948) monthly PET          │
+│  GATE 3: Spatial and Temporal Integrity Auditing                       │
+│  • Tekezé 67,135.4 km² catchment (HydroBASINS Lev 5/6/7 polygon)       │
+│  • Exact polygon fractional area & cosine latitude weights             │
+│  • 95% minimum spatial coverage rule per month                         │
+│  • 528-month continuous temporal sequence (1981–2024)                  │
+│  • Strict NaN propagation through rolling 3-month accumulations        │
+│  • Status: PASSED & AUDITED (7/7 Integrity Tests Passing)              │
+└──────────────────────────────────┬─────────────────────────────────────┘
+                                   │
+                                   ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│  GATE 4: Reconstruct & Validate Drought Indices Target                 │
+│  • Hargreaves-Samani (1985) monthly PET using daily extrema            │
+│  • Thornthwaite (1948) PET baseline sensitivity                        │
 │  • Continuous rolling 12-calendar-month SPEI-3 & SPI-3 engines         │
-│  • Fixed calibration normal: WMO 1991–2020 baseline                   │
-│  • Status: IN PROGRESS (Paused for Gate 1 Review)                     │
+│  • Strict WMO 1991–2020 fixed calibration baseline                     │
+│  • Independent validation against historical Ethiopian droughts        │
+│  • Status: PAUSED (Awaiting Gate 1 Full Archive Ingestion)             │
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
                                    ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│  Gate 3: Teleconnection Analysis & Machine Learning Benchmarking      │
-│  • Pacific (Niño 3.4), Indian (DMI), Atlantic (TNA, TSA) teleconnection│
-│  • Rigorous temporal train/validation/test holdout (>= 2006–2023)      │
-│  • Probabilistic evaluation against dynamic climatology (Brier Score)  │
-│  • Status: PENDING GATE 2 COMPLETION                                  │
+│  GATE 5: Build & Evaluate Predictive Forecasting Models                │
+│  • Chronological split: Train (1981–2005), Val (2006–2014), Test (2015+)│
+│  • Zero future information leakage; rolling-origin cross-validation    │
+│  • Benchmarked against dynamic climatology (Brier score) & persistence │
+│  • Teleconnection lags: Pacific (Niño 3.4), Indian (DMI), Atlantic     │
+│  • Status: DE-SCOPED & PAUSED (Awaiting Gate 4 Validated Target)       │
+└──────────────────────────────────┬─────────────────────────────────────┘
+                                   │
+                                   ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│  GATE 6: Operational AgriMinds Dashboard & Decision Interface          │
+│  • Versioned data interface between pipeline and Streamlit dashboard   │
+│  • Clear separation between observed indices and probabilistic forecast│
+│  • Transparent risk categories, uncertainty intervals, failure states  │
+│  • Automated data-refresh audits and monitoring                        │
+│  • Status: ARCHITECTED & SPECIFIED                                     │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Gate 1 Temperature Audit Highlights
+## Deliverables & Documentation Index
 
-The Gate 1 deliverable ([docs/temperature_source_and_provenance_audit.md](docs/temperature_source_and_provenance_audit.md)) establishes:
-1. **Source Preservation:** Raw benchmark NetCDF files are permanently preserved in `data/raw/temperature/cpc/`:
-   * `tmax.1984.nc` (87.68 MB, SHA-256: `476fae44066168fab45e76fc98aae9bba22c4f00ea1f18cb6304727dadb7305b`)
-   * `tmin.1984.nc` (89.08 MB, SHA-256: `b14e8bba53532cddcaad6120bbe031f38e0bf4755cf92efb248a92f8ac2fedea`)
-2. **Strict Daily Extrema Requirement (Jensen's Inequality):**
-   $$\mathbb{E}[\sqrt{\Delta T_{\text{daily}}}] < \sqrt{\mathbb{E}[\Delta T_{\text{daily}}]}$$
-   Because $\sqrt{u}$ is concave, substituting monthly mean temperature for daily extrema introduces a systematic **+0.5% to +1.4% positive bias** in monthly PET. Daily extrema must be derived at daily timesteps before monthly aggregation.
-3. **Exact Basin Spatial Masking:**
-   Tekezé polygon intersection across the $0.5^\circ$ NOAA CPC grid covers 38 active cells with exact fractional area weighting and cosine-latitude spherical area adjustment, achieving 99.73% annual valid coverage.
-4. **Zero Synthetic Heuristics in Production:**
-   Calls to `get_verified_monthly_temperature()` without real observational NetCDFs now explicitly raise `MissingTemperatureDataError`.
-
----
-
-## Mathematical Formulation: Generalized Logistic (GLO) Distribution
-
-For drought monitoring via SPEI, Hosking's (1990) Generalized Logistic distribution is fitted via unbiased sample L-moments:
-
-* **Unbiased Probability-Weighted Moments:**
-  $$b_r = \frac{1}{n} \sum_{i=1}^n \frac{\binom{i-1}{r}}{\binom{n-1}{r}} x_{(i)}$$
-* **Sample L-Moments:**
-  $$\lambda_1 = b_0, \quad \lambda_2 = 2b_1 - b_0, \quad \tau_3 = \frac{6b_2 - 6b_1 + b_0}{2b_1 - b_0}$$
-* **Parameters:**
-  $$k = -\tau_3, \quad \alpha = \frac{\lambda_2 \sin(k\pi)}{k\pi}, \quad \xi = \lambda_1 - \frac{\alpha}{k}\left(1 - \frac{k\pi}{\sin(k\pi)}\right)$$
-* **Closed-Form CDF:**
-  $$F(x) = \frac{1}{1 + \left[1 - \frac{k(x - \xi)}{\alpha}\right]^{1/k}}$$
-* **Round-Trip Identity:** $F(x(F)) \equiv F$ confirmed to $|F(x(F)) - F| < 10^{-15}$.
-
----
-
-## Repository Structure
-
-```
-drought_forecasting_tekeze_basin/
-├── README.md                                         # Audited project documentation
-├── requirements.txt                                  # Environment dependencies
-├── .gitignore                                        # Clean git exclusion rules
-├── AI_DREWS_SCIENTIFIC_HANDOVER_REPORT.md            # Comprehensive scientific handover audit
-├── data/
-│   ├── raw/
-│   │   ├── temperature/
-│   │   │   └── cpc/                                  # Preserved NOAA CPC NetCDF files (1984)
-│   │   └── chirps_monthly/                           # Monthly CHIRPS GeoTIFFs (1981–2024)
-│   └── spatial/
-│       └── processed/
-│           └── tekeze_basin_hydrological_complete.geojson  # Verified 67,135.4 km² catchment
-├── docs/
-│   ├── temperature_source_and_provenance_audit.md    # Gate 1 Deliverable Report
-│   └── data_provenance_and_climate_reconstruction_audit.md # Gate 0 Audit Report
-├── drought_forecasting/
-│   ├── agriminds/
-│   │   └── climate/
-│   │       └── spei_calculator.py                    # Verified GLO & Gamma distribution engine
-│   └── tests/
-│       └── test_climate_reconstruction_and_spei.py   # 11 automated verification unit tests (PASS)
-└── scripts/
-    └── build_verified_tekeze_monthly_climate_1981_2024.py  # Climate target reconstruction pipeline
-```
+* **Master Plan:** [`docs/AI_DREWS_MASTER_SCIENTIFIC_WORKFLOW_AND_VALIDATION_PLAN.md`](docs/AI_DREWS_MASTER_SCIENTIFIC_WORKFLOW_AND_VALIDATION_PLAN.md)
+* **Gate 1 Report:** [`docs/temperature_source_and_provenance_audit.md`](docs/temperature_source_and_provenance_audit.md)
+* **Gate 2 Report:** [`docs/gate2_cross_language_mathematical_validation_report.md`](docs/gate2_cross_language_mathematical_validation_report.md)
+* **Gate 3 Report:** [`docs/gate3_spatial_and_temporal_integrity_audit.md`](docs/gate3_spatial_and_temporal_integrity_audit.md)
+* **Gate 4 Specification:** [`docs/gate4_drought_indices_reconstruction_and_validation.md`](docs/gate4_drought_indices_reconstruction_and_validation.md)
+* **Gate 5 Specification:** [`docs/gate5_predictive_model_architecture_and_leakage_audit.md`](docs/gate5_predictive_model_architecture_and_leakage_audit.md)
+* **Gate 6 Specification:** [`docs/gate6_agriminds_dashboard_interface_and_monitoring.md`](docs/gate6_agriminds_dashboard_interface_and_monitoring.md)
 
 ---
 
 ## Running the Automated Test Suite
 
-The climate reconstruction and mathematical distribution engines are protected by automated tests:
+The climate reconstruction, spatial masking, and mathematical distribution engines are protected by **23 automated tests**:
 
 ```bash
-python -m pytest drought_forecasting/tests/test_climate_reconstruction_and_spei.py -v
+python -m pytest drought_forecasting/tests/test_climate_reconstruction_and_spei.py \
+                 drought_forecasting/tests/test_gate2_mathematical_benchmarks.py \
+                 drought_forecasting/tests/test_gate3_spatial_and_temporal_integrity.py -v
 ```
 
-All 11 tests pass with strict checks on catchment area, fractional area raster weighting, NoData sentinels exclusion, GLO complete pair round-trip recovery, and explicit failure on missing temperature observations.
+All 23 tests pass in < 3.0 seconds, certifying:
+1. Basin geometry ($67,135.4\text{ km}^2$), topological validity, and CRS.
+2. Fractional area raster weighting and exclusion of negative NoData sentinels (-9999).
+3. 95% spatial coverage threshold enforcement.
+4. Hosking GLO parameter recovery and complete pair round-trip identity ($|F(x(F)) - F| < 10^{-5}$) against R reference fixtures.
+5. Thom Gamma SPI-3 MLE and zero-precipitation adjustment $H(x) = q + (1 - q)G(x)$.
+6. Continuous 528-month sequence and strict rolling 3-month NaN propagation.
+7. Zero synthetic heuristics in production: missing observational feeds explicitly raise `MissingTemperatureDataError`.
+
