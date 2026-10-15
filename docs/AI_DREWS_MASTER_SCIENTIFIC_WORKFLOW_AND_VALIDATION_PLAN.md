@@ -1,10 +1,11 @@
 # AI-DREWS: Master Scientific Workflow & Multi-Gate Validation Plan
 ## End-to-End Execution Blueprint for Tekezé Basin Drought Forecasting (1981–2024)
 
-**Document ID:** `AI-DREWS-MASTER-PLAN-2026-10-REV5`  
+**Document ID:** `AI-DREWS-MASTER-PLAN-2026-10-REV6`  
 **Reference Standards:** WMO-No. 100 Climatological Guidelines; Copernicus Climate Data Store (CDS); NOAA PSL THREDDS; R `lmom` v2.9 / `SPEI` v1.8.1; HydroBASINS (WWF / USGS)  
 **Strategy Selection:** **Option A (ECMWF ERA5-Land Reanalysis Primary + NOAA CPC Global Gridded Temperature Independent Comparison)**  
 **Overall Pipeline Status:** **HISTORICAL RECONSTRUCTION PAUSED PENDING COMPLETION OF GATE 1 INGESTION**  
+**Gate Qualification Notice:** Gates 2 and 3 are retained as working specifications with 31 passing software implementation tests, but are strictly qualified as **reported/provisional** pending complete raw archive ingestion, independent reference calculations, and end-to-end provenance audits.  
 **Spatial Domain:** Ethiopian Tekezé River Catchment ($67,135.4\text{ km}^2$; HydroBASINS Level 5 Union of `1050648030`, `1050692800`, `1050692900`; Lat: $11.6619^\circ\text{N}–14.7958^\circ\text{N}$, Lon: $35.8583^\circ\text{E}–39.7917^\circ\text{E}$)  
 **Target Sequence:** January 1981 – December 2024 (528 consecutive calendar months)
 
@@ -12,7 +13,7 @@
 
 ## 1. Executive Workflow Architecture & Gate Certification Status
 
-The scientific workflow of the AI-Driven Drought Early Warning System (AI-DREWS) operates under strict **progressive certification gates**. A downstream gate cannot begin or claim validity until all prerequisite gates achieve `PASS` status.
+The scientific workflow of the AI-Driven Drought Early Warning System (AI-DREWS) operates under strict **progressive certification gates**. A downstream gate cannot begin or claim validity until all prerequisite gates achieve certified `PASS` status.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -28,10 +29,11 @@ The scientific workflow of the AI-Driven Drought Early Warning System (AI-DREWS)
 ┌────────────────────────────────────────────────────────────────────────┐
 │  GATE 2: Mathematical Implementation Cross-Validation                  │
 │  • Hosking (1990) GLO parameterization (deliberate alternative to log-logistic)│
-│  • Exact support bounds & float64 boundary epsilon tests               │
-│  • Independent R lmom v2.9 benchmark fixtures (7 test cases, 8 tests)  │
+│  • Exact support bounds & float64 deliberate endpoint safeguards       │
+│  • Independent R lmom v2.9 benchmark fixtures (7 test cases, 13 tests) │
+│  • Hargreaves-Samani FAO-56 radiation units & daily summation tests    │
 │  • Thom (1958) shape approximation for Gamma SPI-3 with zero treatment q│
-│  • Status: PASS — reported (Internal Suite Passing; External R Audit Pending)│
+│  • Status: PASS — reported (31 Tests Passing; External Empirical Audit Pending)│
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
                                    ▼
@@ -42,15 +44,16 @@ The scientific workflow of the AI-Driven Drought Early Warning System (AI-DREWS)
 │  • Explicit physical intersection area weights: a_i in km²             │
 │  • 95% minimum spatial coverage rule: C_t = sum(v_i a_i) / sum(a_i)    │
 │  • 528-month continuous temporal sequence (1981–2024)                  │
-│  • Status: PASS — reported (Internal Suite Passing; External Boundary Audit Pending)│
+│  • Status: PASS — reported (Internal Suite Passing; External Topology Audit Pending)│
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
                                    ▼
 ┌────────────────────────────────────────────────────────────────────────┐
 │  GATE 4: Reconstruct & Validate Drought Indices Target                 │
-│  • Hargreaves-Samani (1985) daily extrema PET to preserve variability  │
+│  • Hargreaves-Samani (1985; FAO-56) daily extrema PET (MJ/m²/day units)│
 │  • Continuous 528-month sequence ensures Nov/Dec 1990 boundary for Jan 1991│
-│  • Dual-Target Architecture: Retrospective vs Forecast-Evaluation Target│
+│  • 4-Tier Target Schema: spei3_retro, spei3_train, spei3_val, spei3_test│
+│  • Frozen training parameters (1981–2005) applied to validation & test │
 │  • Separate distribution calibration for each of 12 calendar months    │
 │  • Historical drought event validation treated as testable hypotheses  │
 │  • Status: NOT RUN (Explicitly Paused for Gate 1 Archive Ingestion)    │
@@ -226,30 +229,59 @@ A comprehensive forensic audit of all raw climate data files currently on disk i
   Calculating the rolling 3-month water balance for January 1991 ($t = \text{1991-01}$) requires climate observations from **November 1990 and December 1990**, even though Nov/Dec 1990 fall outside the 1991–2020 calibration period!
   Likewise, the final target month (December 2024) requires October and November 2024. The pipeline maintains the complete continuous 528-month climate series, selecting calibration samples by ending calendar month only when estimating distribution parameters.
 
-### 5.2 Dual-Target Calibration Protocol (Zero Future Leakage)
+### 5.2 Multi-Protocol 4-Tier Target Calibration Schema (Zero Leakage)
 
-To guarantee that target construction does not leak future information across training, validation, and test splits:
-1. **Retrospective Climate Index ($\text{SPEI-3}_{\text{retro}}$):**
-   * Calibrated over the declared 30-year WMO normal period (1991–2020; $N=30$ observations per calendar month).
-   * Used exclusively for retrospective historical climate analysis, multi-decadal trend evaluation, and dashboard historical visualization.
-2. **Forecast-Evaluation Target ($\text{SPEI-3}_{\text{eval}}$):**
-   * Calibrated strictly adhering to each evaluation fold's permitted training/calibration period:
-     * **Training Split (1981–2005):** Distribution parameters $(\xi_m, \alpha_m, k_m)$ are fitted strictly using observations from **1981–2005** ($N=25$).
-     * **Validation Split (2006–2014):** Target standardization is fixed to the 1981–2005 parameters (strictly prior to validation).
-     * **Frozen Test Holdout (2015–2024):** Target standardization is fixed to the pre-test parameters (1981–2005 or pre-test 1981–2014).
-   * Under NO circumstances do 2015–2024 observations enter target standardization for forecasting models.
-   * Calibration years, distribution parameters, and cutoff date are recorded alongside each target value. The two indices are not assumed to be numerically interchangeable.
+To guarantee that target construction strictly avoids information leakage and prevents conflation of different calibration baselines, the pipeline produces and stores four separate standardized series:
 
-### 5.3 Hargreaves–Samani PET & Radiative Formulation
+1. **Retrospective Climatological Target (`spei3_retro`):**
+   * Calibrated over the declared 30-year WMO normal period (**1991–2020**; $N=30$ observations per calendar month).
+   * Used exclusively for retrospective historical hazard analysis, decadal climatology, and long-term monitoring.
+2. **Training-Era Target (`spei3_train`):**
+   * Calibrated strictly using observations from the training split (**1981–2005**, $N=25$ observations per calendar month).
+   * Quantifies historical drought severity on the training era with training-available information only.
+3. **Validation Target (`spei3_validation`):**
+   * Standardized across the validation split (**2006–2014**, $N=9$) using **FROZEN 1981–2005 distribution parameters**.
+   * Under no circumstances are validation observations used to estimate distribution parameters.
+4. **Primary Test Target (`spei3_test`):**
+   * Standardized across the frozen holdout split (**2015–2024**, $N=10$) using **FROZEN 1981–2005 distribution parameters**.
+   * Zero test observations are used in parameter fitting, ensuring a common mathematical scale between training and test holdouts.
+5. **Auxiliary Sensitivity Target (`spei3_test_expanded_sensitivity`):**
+   * An alternative test target standardized using parameters fitted on the expanded pre-test archive (**1981–2014**, $N=34$).
+   * Maintained and reported strictly as a separately labelled sensitivity comparison to evaluate the trade-off between sample size ($N=25$ vs $N=34$) and temporal stationarity.
 
-* **Formula:**
-  $$\text{PET}_{\text{daily}} = 0.0023 \cdot R_a \cdot (T_{\text{mean}} + 17.8) \cdot \sqrt{T_{\max} - T_{\min}}$$
-  Where $R_a$ is extraterrestrial solar radiation ($\text{mm/day}$ equivalent) computed from latitude and calendar day, and $\text{PET}_{\text{monthly}} = \sum_{d \in \text{month}} \text{PET}_{\text{daily}}$ ($\text{mm/month}$).
+* **Parameter Uncertainty & Sample Size Reality ($N=25$):**
+  Estimating a three-parameter Generalized Logistic distribution $(\xi, \alpha, k)$ from $N=25$ observations incurs shape parameter sampling variance. The pipeline computes parametric bootstrap standard errors for $(\xi, \alpha, k)$ and outputs them in target metadata.
+
+### 5.3 Hargreaves–Samani PET & Radiative Formulation (FAO-56 Standard)
+
+* **Physical Units and Equations:**
+  In the conventional Hargreaves–Samani formulation (FAO-56 Eq. 52; Hargreaves & Samani 1985), extraterrestrial radiation $R_a$ is computed in energy units:
+  $$R_a \quad [\text{MJ}\cdot\text{m}^{-2}\cdot\text{day}^{-1}]$$
+  Converting energy into equivalent water depth evaporation requires multiplying by $\frac{1}{\lambda \rho_w} \approx 0.408 \text{ mm}/(\text{MJ}\cdot\text{m}^{-2})$ (where latent heat of vaporization $\lambda \approx 2.45\text{ MJ/kg}$):
+  $$R_{a,\text{eq}} = 0.408 \cdot R_a \quad [\text{mm}\cdot\text{day}^{-1}]$$
+  The daily reference evapotranspiration ($\text{PET}_d$) is therefore:
+  $$\text{PET}_d = 0.0023 \times 0.408 \times R_{a,\text{MJ}} \times (T_{\text{mean}} + 17.8) \sqrt{T_{\max} - T_{\min}} \quad [\text{mm/day}]$$
+  $$\equiv 0.0023 \times R_{a,\text{eq}} \times (T_{\text{mean}} + 17.8) \sqrt{T_{\max} - T_{\min}} \quad [\text{mm/day}]$$
+  Where $0.0023 \times 0.408 = 0.0009384$.
+* **Monthly Accumulation from Daily Extrema:**
+  Monthly PET is accumulated as the exact sum of daily values:
+  $$\text{PET}_{\text{month}} = \sum_{d=1}^{N_m} \text{PET}_{d} \quad [\text{mm/month}]$$
+  This explicitly accounts for:
+  1. Leap-year day counts ($N_m = 29$ days in February 1984, 1988, ..., 2024 vs $28$ days in non-leap years).
+  2. Daily solar declination and astronomical radiation dynamics across the catchment.
+  3. Strict input validity rejection: $T_{\max} < T_{\min}$ or non-finite inputs immediately return `NaN`.
 * **Interpretation of Jensen's Inequality:**
-  Daily PET is calculated from daily temperature extrema to preserve diurnal temporal variability in the Hargreaves–Samani formulation ($\mathbb{E}[\sqrt{\Delta T}] \le \sqrt{\mathbb{E}[\Delta T]}$). Monthly-mean-input calculations are treated as a sensitivity comparison, not as a guaranteed upper-biased or lower-biased estimate of true actual evapotranspiration.
-* **Fit Diagnostics for Sample Size ($N=25–30$):**
-  The pipeline reports parameter stability checks, Kolmogorov-Smirnov goodness-of-fit, and extreme tail behavior.
-* **Historical Validation Hypotheses:** 1984/85, 1987, 2002/03, 2015/16 shocks and 1988, 1998 pluvials are treated as testable hypotheses; target calculations are never forced to predetermined numbers.
+  Because $f(u) = \sqrt{u}$ is strictly concave, $\mathbb{E}[\sqrt{\Delta T}] \le \sqrt{\mathbb{E}[\Delta T]}$. Summing daily PET avoids the positive bias introduced by evaluating monthly average diurnal range $\sqrt{\bar{T}_{\max} - \bar{T}_{\min}}$.
+
+### 5.4 GLO Distribution Numerical Stability & Deliberate Endpoint Safeguards
+
+Under Hosking (1990) Generalized Logistic distribution:
+* **CDF Evaluation:** The cumulative distribution function $F(x) = \frac{1}{1 + (1 - k(x - \xi)/\alpha)^{1/k}}$ is evaluated directly in double precision without an arbitrary probability floor, returning the most accurate representable float in $[0.0, 1.0]$.
+* **Normal-Score Transformation:** In IEEE 754 float64, extreme tail probabilities can round to exactly `0.0` or `1.0` near support boundaries. The transformation `compute_standardized_z_score` deliberately intercepts endpoints:
+  * $p \le 0.0 \implies z = -5.0$, logged with `LOWER_ENDPOINT_SAFEGUARD`.
+  * $p \ge 1.0 \implies z = +5.0$, logged with `UPPER_ENDPOINT_SAFEGUARD`.
+  * Finite bounds $[-5.0, 5.0]$ prevent `ndtri(0)` or `ndtri(1)` from silently producing infinite ($\pm\infty$) drought indices.
+* **Audit Trail:** The raw non-exceedance probabilities and transformation safeguard flags are preserved alongside standardized z-scores in the output metadata.
 * **Current Status:** `NOT RUN` (Paused pending Gate 1 completion).
 
 ---
@@ -268,7 +300,8 @@ To eliminate temporal data leakage and establish operational realism:
   * July, August, and September rainfall and temperature are completely unobserved on June 1 and **must never enter predictor features**.
   * Actual operational publication schedules (e.g. real-world latency of ocean SST teleconnection products) are documented and enforced, rather than assuming an arbitrary nominal lag.
 
-### 6.2 Model Progression & Evaluation Rigor
+### 6.2 Model Progression & Small-Sample Evaluation Rigor
+
 1. **Predefined Drought Event Threshold:**
    * Declared in advance: $\text{SPEI-3}_{\text{eval}} \le -1.0$ represents moderate-or-worse drought.
 2. **Baselines First (Fit on Training Data Only):**
@@ -280,16 +313,14 @@ To eliminate temporal data leakage and establish operational realism:
    * Gradient Boosted Decision Trees (XGBoost).
    * Recurrent Neural Networks (LSTM / BiLSTM).
    * Spatiotemporal Architectures (CNN-LSTM, Fourier Neural Operator).
-4. **Statistical Sample Size Constraint & Test Set Integrity:**
-   * 44 years of observations yield only 44 annual seasonal realizations.
+4. **Small-Sample Test Set Realities ($N=10$):**
    * The frozen test set (2015–2024) contains exactly **10 annual September forecasts**.
-   * Correlated spatial grid cells within the Tekezé catchment cannot be treated as independent degrees of freedom. Spatial deep learning must demonstrate defensible out-of-sample improvement over persistence, climatology, and regularized regression.
+   * With only 10 cases, bootstrap confidence intervals are unstable, especially if few events cross the $\text{SPEI-3} \le -1.0$ threshold.
+   * **Mandatory Reporting:** The pipeline must report the exact number of drought events and non-events alongside Brier Score ($BS$), Brier Skill Score ($\text{BSS}$), and CRPS.
+   * **Uncertainty Qualification:** Use paired resampling procedures and explicitly label all uncertainty estimates as **exploratory**.
+   * **Generalization Caveat:** A positive Brier Skill Score over ten years is encouraging preliminary evidence, but it is not strong evidence by itself that a model will generalize to other decades or non-stationary climate conditions.
+5. **Frozen Holdout Discipline:**
    * Test set decisions remain strictly frozen; no hyperparameters, features, or thresholds may be tuned after inspecting test outcomes.
-5. **Evaluation Metrics & Uncertainty Reporting:**
-   * Brier Score ($BS$) and Brier Skill Score ($\text{BSS} > 0$ relative to dynamic climatology).
-   * Continuous Ranked Probability Score (CRPS).
-   * Mean Absolute Error (MAE) and Root Mean Squared Error (RMSE).
-   * Bootstrap confidence intervals accounting for temporal dependence and small test sample size ($N=10$).
 * **Current Status:** `NOT RUN` (Paused pending Gate 4 completion).
 
 ---

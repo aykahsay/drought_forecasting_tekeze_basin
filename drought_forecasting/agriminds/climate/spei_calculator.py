@@ -34,51 +34,146 @@ import scipy.special as sp
 def calculate_extraterrestrial_radiation_ra(
     latitude_deg: float,
     month: int,
-    days_in_month: int
+    days_in_month: int = 30,
+    day_of_year: Optional[int] = None,
+    return_energy_units: bool = False
 ) -> float:
     """
-    Computes monthly extraterrestrial radiation Ra in mm/day equivalent following FAO-56 (Allen et al. 1998).
+    Computes extraterrestrial solar radiation Ra following FAO-56 (Allen et al. 1998, Eq. 21-28).
+    
+    Physics and Units:
+      - Solar constant G_sc = 0.0820 MJ m^-2 min^-1.
+      - Integrated daily extraterrestrial radiation Ra is computed in energy units: MJ m^-2 day^-1.
+      - Equivalent water depth evaporation: 1 MJ m^-2 day^-1 = 0.408 mm day^-1 (inverse of latent heat of vaporization lambda ~= 2.45 MJ/kg).
+      - R_a,eq (mm day^-1) = 0.408 * R_a,MJ (MJ m^-2 day^-1).
 
     Args:
         latitude_deg: Latitude in decimal degrees (positive North, [-90.0, 90.0]).
         month: Calendar month (1 to 12).
         days_in_month: Number of days in the specified month (> 0).
+        day_of_year: Optional exact Julian day (1 to 366). If None, uses mid-month day.
+        return_energy_units: If True, returns Ra in MJ m^-2 day^-1. If False (default), returns Ra in mm/day equivalent.
 
     Returns:
-        Ra in mm/day equivalent, or float("nan") if inputs are non-finite or invalid.
+        Ra in mm/day equivalent (or MJ m^-2 day^-1 if return_energy_units=True), or float("nan") if inputs are invalid.
     """
     if not (isinstance(latitude_deg, (int, float)) and math.isfinite(latitude_deg)):
         return float("nan")
     if not (-90.0 <= latitude_deg <= 90.0) or not (1 <= month <= 12) or days_in_month <= 0:
         return float("nan")
 
-    # Mid-month Julian day approximation
-    mid_month_day = [15, 45, 74, 105, 135, 165, 196, 227, 258, 288, 319, 349][month - 1]
+    # Mid-month Julian day approximation or exact day_of_year
+    if day_of_year is not None and 1 <= day_of_year <= 366:
+        julian_day = day_of_year
+    else:
+        julian_day = [15, 45, 74, 105, 135, 165, 196, 227, 258, 288, 319, 349][month - 1]
+
     phi = math.radians(latitude_deg)
 
-    # Solar declination delta (radians)
-    delta = 0.409 * math.sin((2.0 * math.pi / 365.0) * mid_month_day - 1.39)
+    # Solar declination delta (radians) - FAO-56 Eq. 24
+    delta = 0.409 * math.sin((2.0 * math.pi / 365.0) * julian_day - 1.39)
 
-    # Relative distance Earth-Sun dr
-    dr = 1.0 + 0.033 * math.cos((2.0 * math.pi / 365.0) * mid_month_day)
+    # Relative distance Earth-Sun dr - FAO-56 Eq. 23
+    dr = 1.0 + 0.033 * math.cos((2.0 * math.pi / 365.0) * julian_day)
 
-    # Sunset hour angle omega_s (radians)
+    # Sunset hour angle omega_s (radians) - FAO-56 Eq. 25-26
     x = -math.tan(phi) * math.tan(delta)
     if x < -1.0:
-        omega_s = math.pi  # Polar day
+        omega_s = math.pi  # Polar day (midnight sun)
     elif x > 1.0:
-        omega_s = 0.0      # Polar night
+        omega_s = 0.0      # Polar night (continuous darkness)
     else:
         omega_s = math.acos(x)
 
-    # Solar constant Gsc = 0.0820 MJ / (m^2 * min) -> Ra in MJ / (m^2 * day)
+    # Solar constant Gsc = 0.0820 MJ / (m^2 * min) -> Ra in MJ / (m^2 * day) - FAO-56 Eq. 21
     ra_mj = (24.0 * 60.0 / math.pi) * 0.0820 * dr * (
         omega_s * math.sin(phi) * math.sin(delta) +
         math.cos(phi) * math.cos(delta) * math.sin(omega_s)
     )
-    # Convert MJ / (m^2 * day) to mm/day equivalent (1 MJ/m^2/day = 0.408 mm/day)
+    ra_mj = max(0.0, float(ra_mj))
+
+    if return_energy_units:
+        return ra_mj
+
+    # Convert MJ / (m^2 * day) to mm/day equivalent via 0.408 (1 / lambda) - FAO-56 Eq. 20
     ra_mm_day = max(0.0, 0.408 * ra_mj)
-    return ra_mm_day
+    return float(ra_mm_day)
+
+
+def calculate_hargreaves_daily_pet(
+    t_max_c: float,
+    t_min_c: float,
+    latitude_deg: float,
+    day_of_year: int
+) -> float:
+    """
+    Calculates daily Hargreaves-Samani (1985; FAO-56 Eq. 52) Reference Evapotranspiration (PET_d) in mm/day.
+
+    Formulas:
+        In energy units (Ra in MJ m^-2 day^-1):
+            PET_d (mm/day) = 0.0023 * 0.408 * Ra_MJ * (T_mean + 17.8) * sqrt(T_max - T_min)
+                           = 0.0009384 * Ra_MJ * (T_mean + 17.8) * sqrt(T_max - T_min)
+        In equivalent evaporation depth (Ra_eq in mm/day = 0.408 * Ra_MJ):
+            PET_d (mm/day) = 0.0023 * Ra_eq * (T_mean + 17.8) * sqrt(T_max - T_min)
+
+    Returns:
+        PET_d in mm/day, or float("nan") if inputs are non-finite or unphysical (e.g., T_max < T_min).
+    """
+    if not (math.isfinite(t_max_c) and math.isfinite(t_min_c)):
+        return float("nan")
+    if t_max_c < t_min_c:
+        return float("nan")
+    if not (-60.0 <= t_min_c <= 60.0 and -60.0 <= t_max_c <= 65.0):
+        return float("nan")
+    if not (1 <= day_of_year <= 366):
+        return float("nan")
+
+    # Approximate month for day_of_year to satisfy signature
+    month = min(12, max(1, int(day_of_year / 30.5) + 1))
+    ra_mm_day = calculate_extraterrestrial_radiation_ra(
+        latitude_deg, month=month, days_in_month=30, day_of_year=day_of_year, return_energy_units=False
+    )
+    if not math.isfinite(ra_mm_day) or ra_mm_day <= 0.0:
+        return float("nan")
+
+    t_mean_c = (t_max_c + t_min_c) / 2.0
+    dtr = t_max_c - t_min_c
+    t_term = max(0.0, t_mean_c + 17.8)
+    pet_day = 0.0023 * ra_mm_day * t_term * math.sqrt(dtr)
+    return max(0.0, float(pet_day))
+
+
+def calculate_hargreaves_monthly_pet_from_daily(
+    daily_tmax: List[float],
+    daily_tmin: List[float],
+    latitude_deg: float,
+    year: int,
+    month: int
+) -> float:
+    """
+    Computes monthly PET as the exact sum of daily Hargreaves PET values.
+    Preserves leap-year day counts (29 days in Feb vs 28 in non-leap) and day-to-day radiation.
+
+    Returns:
+        Monthly accumulated PET in mm/month, or float("nan") if data is missing/invalid.
+    """
+    import calendar
+    _, days_in_m = calendar.monthrange(year, month)
+    if len(daily_tmax) != days_in_m or len(daily_tmin) != days_in_m:
+        return float("nan")
+
+    # Day of year offset
+    start_doy = sum(calendar.monthrange(year, m)[1] for m in range(1, month)) + 1
+
+    monthly_sum = 0.0
+    for day_idx in range(days_in_m):
+        doy = start_doy + day_idx
+        d_pet = calculate_hargreaves_daily_pet(daily_tmax[day_idx], daily_tmin[day_idx], latitude_deg, doy)
+        if not math.isfinite(d_pet):
+            return float("nan")
+        monthly_sum += d_pet
+
+    return float(monthly_sum)
 
 
 def calculate_hargreaves_pet(
@@ -90,17 +185,21 @@ def calculate_hargreaves_pet(
     days_in_month: int
 ) -> float:
     """
-    Calculates monthly Hargreaves-Samani (1985) Potential Evapotranspiration in mm/month.
+    Calculates monthly Hargreaves-Samani (1985; FAO-56) Potential Evapotranspiration in mm/month
+    from monthly average temperatures.
 
-    Formula:
-        PET (mm/day) = 0.0023 * Ra * (T_mean + 17.8) * sqrt(T_max - T_min)
-        PET (mm/month) = PET (mm/day) * days_in_month
+    Formulas:
+        PET_d (mm/day) = 0.0023 * Ra_eq * (T_mean + 17.8) * sqrt(T_max - T_min)
+        where Ra_eq = 0.408 * Ra_MJ is extraterrestrial radiation in mm/day equivalent.
+        Equivalently, with Ra expressed in conventional energy units (MJ m^-2 day^-1):
+        PET_d (mm/day) = 0.0023 * 0.408 * Ra_MJ * (T_mean + 17.8) * sqrt(T_max - T_min)
+        PET (mm/month) = PET_d * days_in_month
 
-    Methodological Context:
-        Hargreaves-Samani uses extraterrestrial radiation Ra and diurnal temperature range
-        (T_max - T_min) as an empirical proxy for net surface radiation and vapour pressure deficit.
-        It does not directly measure net radiation or atmospheric humidity.
-        Evaluated alongside Thornthwaite (1948) and ERA5-Land Penman-Monteith reference data.
+    Methodological Note on Jensen's Inequality:
+        Because sqrt(u) is strictly concave, E[sqrt(DTR)] <= sqrt(E[DTR]).
+        Computing PET from monthly-mean extrema introduces an empirical difference
+        relative to summing daily PET values. In AI-DREWS, daily PET is summed across
+        all calendar days whenever daily data (ERA5-Land / CPC) is processed.
 
     Returns:
         Monthly PET in mm/month, or float("nan") if inputs are non-finite, missing, or unphysical.
@@ -362,40 +461,77 @@ def cdf_gamma_spi(p: float, alpha: float, beta: float, q_zero: float) -> float:
 # 4. Standard Normal Transformation
 # ---------------------------------------------------------------------------
 
-def compute_standardized_z_score(prob: float) -> float:
+def compute_standardized_z_score(
+    prob: float,
+    tail_bound: float = 5.0,
+    return_safeguard: bool = False
+) -> Union[float, Tuple[float, str]]:
     """
-    Converts non-exceedance probability P to standard normal z-score
-    using scipy.special.ndtri with Abramowitz & Stegun rational fallback.
-    Bounded to [1e-6, 1.0 - 1e-6].
+    Converts non-exceedance probability P to standard normal z-score.
+
+    Deliberate 3-Phase Tail Architecture (Reviewer Specification):
+      1. CDF Evaluation: The upstream CDF evaluation returns the most accurate representable
+         probability without an arbitrary probability floor.
+      2. Normal-Score Transformation: Deliberately handles exact or rounded endpoint probabilities
+         (prob <= 0.0 or prob >= 1.0) so ndtri(0) or ndtri(1) does not silently create infinite
+         (+/- inf) drought-index values.
+      3. Scientific Audit Output: Preserves the raw probability, applies finite bounding [-tail_bound, +tail_bound]
+         (default +/- 5.0), and records any numerical safeguard applied during transformation.
+
+    Args:
+        prob: Non-exceedance probability in [0.0, 1.0].
+        tail_bound: Maximum allowable absolute z-score (default 5.0).
+        return_safeguard: If True, returns (z_score, safeguard_label).
+
+    Returns:
+        Standardized normal score (float), or (z_score, safeguard_label) if return_safeguard=True.
     """
-    if not math.isfinite(prob):
-        return float("nan")
+    if not (isinstance(prob, (int, float)) and math.isfinite(prob)):
+        res = float("nan")
+        return (res, "NAN_INPUT") if return_safeguard else res
 
-    p = np.clip(prob, 1e-6, 1.0 - 1e-6)
+    # Phase 1: Deliberate handling of rounded endpoint probabilities
+    if prob <= 0.0:
+        z = -float(tail_bound)
+        label = "LOWER_ENDPOINT_SAFEGUARD"
+        return (z, label) if return_safeguard else z
 
+    if prob >= 1.0:
+        z = float(tail_bound)
+        label = "UPPER_ENDPOINT_SAFEGUARD"
+        return (z, label) if return_safeguard else z
+
+    # Phase 2: High-precision normal score transformation
+    label = "NONE"
     try:
-        z = float(sp.ndtri(p))
-        if math.isfinite(z):
-            return z
+        raw_z = float(sp.ndtri(prob))
+        if math.isfinite(raw_z):
+            z = raw_z
+        else:
+            z = -float(tail_bound) if prob < 0.5 else float(tail_bound)
+            label = "INFINITE_INVERSION_SAFEGUARD"
     except Exception:
-        pass
+        # Abramowitz & Stegun (1965) fallback
+        c0, c1, c2 = 2.515517, 0.802853, 0.010328
+        d1, d2, d3 = 1.432788, 0.189269, 0.001308
+        p_eval = min(max(prob, 1e-15), 1.0 - 1e-15)
+        if p_eval <= 0.5:
+            w = math.sqrt(-2.0 * math.log(p_eval))
+            z = -(w - ((c0 + c1 * w + c2 * (w ** 2)) / (1.0 + d1 * w + d2 * (w ** 2) + d3 * (w ** 3))))
+        else:
+            w = math.sqrt(-2.0 * math.log(1.0 - p_eval))
+            z = (w - ((c0 + c1 * w + c2 * (w ** 2)) / (1.0 + d1 * w + d2 * (w ** 2) + d3 * (w ** 3))))
+        label = "RATIONAL_APPROXIMATION"
 
-    # Abramowitz & Stegun (1965) fallback
-    c0 = 2.515517
-    c1 = 0.802853
-    c2 = 0.010328
-    d1 = 1.432788
-    d2 = 0.189269
-    d3 = 0.001308
+    # Phase 3: Finite tail bounding
+    if z < -tail_bound:
+        z = -float(tail_bound)
+        label = "LOWER_TAIL_CLAMP"
+    elif z > tail_bound:
+        z = float(tail_bound)
+        label = "UPPER_TAIL_CLAMP"
 
-    if p <= 0.5:
-        w = math.sqrt(-2.0 * math.log(p))
-        z = -(w - ((c0 + c1 * w + c2 * (w ** 2)) / (1.0 + d1 * w + d2 * (w ** 2) + d3 * (w ** 3))))
-    else:
-        w = math.sqrt(-2.0 * math.log(1.0 - p))
-        z = (w - ((c0 + c1 * w + c2 * (w ** 2)) / (1.0 + d1 * w + d2 * (w ** 2) + d3 * (w ** 3))))
-
-    return float(z)
+    return (float(z), label) if return_safeguard else float(z)
 
 
 # ---------------------------------------------------------------------------
@@ -419,7 +555,7 @@ def calculate_spei_seasonal(
         min_calibration_years: Minimum required valid years in calibration period (default 20).
 
     Returns:
-        Dictionary with standardized SPEI series, parameters, and metadata.
+        Dictionary with standardized SPEI series, raw probabilities, safeguards, parameters, and metadata.
     """
     if len(d_seasonal_series) != len(years):
         raise ValueError("Lengths of d_seasonal_series and years must match exactly.")
@@ -438,17 +574,26 @@ def calculate_spei_seasonal(
     xi, alpha, k = fit_generalized_logistic_l_moments(calib_data, min_samples=min_calibration_years)
 
     spei_out = np.full(len(d_seasonal_series), np.nan, dtype=np.float64)
+    prob_out = np.full(len(d_seasonal_series), np.nan, dtype=np.float64)
+    safeguards = []
+
     for i, d_val in enumerate(d_seasonal_series):
         if not math.isfinite(d_val):
+            safeguards.append("NAN_INPUT")
             continue
         prob = cdf_generalized_logistic(d_val, xi, alpha, k)
-        spei_out[i] = compute_standardized_z_score(prob)
+        z, guard = compute_standardized_z_score(prob, return_safeguard=True)
+        prob_out[i] = prob
+        spei_out[i] = z
+        safeguards.append(guard)
 
     moderate_droughts = years[(spei_out <= -1.0) & np.isfinite(spei_out)].tolist()
     severe_droughts = years[(spei_out <= -2.0) & np.isfinite(spei_out)].tolist()
 
     return {
         "spei": spei_out,
+        "prob_raw": prob_out,
+        "safeguards": safeguards,
         "distribution": "Generalized_Logistic_Hosking",
         "params": {"xi": xi, "alpha": alpha, "k": k},
         "calibration_period": list(calibration_period),
@@ -457,6 +602,192 @@ def calculate_spei_seasonal(
         "status": "SUCCESS",
         "drought_years_moderate": [int(y) for y in moderate_droughts],
         "drought_years_severe": [int(y) for y in severe_droughts]
+    }
+
+
+def generate_four_tier_spei_targets(
+    d_seasonal_series: np.ndarray,
+    years: np.ndarray,
+    train_range: Tuple[int, int] = (1981, 2005),
+    val_range: Tuple[int, int] = (2006, 2014),
+    test_range: Tuple[int, int] = (2015, 2024),
+    retro_range: Tuple[int, int] = (1991, 2020),
+    min_calibration_years: int = 20,
+    drought_threshold: float = -1.0,
+    n_bootstrap: int = 500
+) -> Dict[str, Any]:
+    """
+    Implements the AI-DREWS Multi-Protocol 4-Tier Drought Target Calibration Schema (REV6 Standard).
+
+    Protocol Architecture:
+      - spei3_retro: Fixed 1991–2020 WMO standard climatological baseline (N=30).
+        Used exclusively for retrospective hazard reconstruction and historical benchmarking.
+      - spei3_train: Parameters fitted strictly on training observations (1981–2005, N=25).
+        Quantifies drought severity on the training era with training-available information only.
+      - spei3_validation: Evaluated on 2006–2014 (N=9) using FROZEN 1981–2005 training parameters.
+        No validation observations are used to estimate distribution parameters.
+      - spei3_test: Primary test target evaluated on 2015–2024 (N=10) using FROZEN 1981–2005 parameters.
+        Zero test observations used in parameter fitting, ensuring a common scale with training and zero leakage.
+      - spei3_test_expanded_sensitivity: Auxiliary sensitivity target for 2015–2024 evaluated with
+        parameters fitted on 1981–2014 (N=34). Strictly documented as a separate sensitivity analysis.
+
+    Uncertainty & Sample Size Quantification:
+      - With N=25 (1981–2005), sample L-moments incur sampling variability in the shape parameter k.
+        Parametric bootstrap standard errors (xi_se, alpha_se, k_se) are estimated and reported.
+      - With N=10 annual September forecasts (2015–2024), performance metrics (Brier, BSS, CRPS)
+        are preliminary evidence. The exact number of drought events (SPEI <= -1.0) and non-events is recorded.
+
+    Returns:
+      Comprehensive dictionary with all separate target series, parameter versions, and audit metadata.
+    """
+    if len(d_seasonal_series) != len(years):
+        raise ValueError("Lengths of d_seasonal_series and years must match.")
+
+    # 1. Fit Retrospective Baseline (1991–2020)
+    retro_mask = (years >= retro_range[0]) & (years <= retro_range[1]) & np.isfinite(d_seasonal_series)
+    retro_vals = d_seasonal_series[retro_mask]
+    if len(retro_vals) < min_calibration_years:
+        raise ValueError(f"Insufficient retrospective calibration samples ({len(retro_vals)} < {min_calibration_years})")
+    xi_retro, alpha_retro, k_retro = fit_generalized_logistic_l_moments(retro_vals, min_samples=min_calibration_years)
+
+    # 2. Fit Training Baseline (1981–2005)
+    train_mask = (years >= train_range[0]) & (years <= train_range[1]) & np.isfinite(d_seasonal_series)
+    train_vals = d_seasonal_series[train_mask]
+    if len(train_vals) < min_calibration_years:
+        raise ValueError(f"Insufficient training calibration samples ({len(train_vals)} < {min_calibration_years})")
+    xi_train, alpha_train, k_train = fit_generalized_logistic_l_moments(train_vals, min_samples=min_calibration_years)
+
+    # Bootstrap parameter uncertainty on training data (N=25)
+    rng = np.random.default_rng(seed=42)
+    boot_xi, boot_alpha, boot_k = [], [], []
+    for _ in range(n_bootstrap):
+        boot_sample = rng.choice(train_vals, size=len(train_vals), replace=True)
+        try:
+            b_xi, b_alpha, b_k = fit_generalized_logistic_l_moments(boot_sample, min_samples=min_calibration_years)
+            boot_xi.append(b_xi)
+            boot_alpha.append(b_alpha)
+            boot_k.append(b_k)
+        except Exception:
+            continue
+
+    train_se = {
+        "xi_se": float(np.std(boot_xi)) if boot_xi else float("nan"),
+        "alpha_se": float(np.std(boot_alpha)) if boot_alpha else float("nan"),
+        "k_se": float(np.std(boot_k)) if boot_k else float("nan"),
+        "n_bootstrap_converged": len(boot_xi)
+    }
+
+    # 3. Fit Expanded Pre-Test Sensitivity Baseline (1981–2014)
+    expanded_mask = (years >= train_range[0]) & (years <= val_range[1]) & np.isfinite(d_seasonal_series)
+    expanded_vals = d_seasonal_series[expanded_mask]
+    xi_sens, alpha_sens, k_sens = fit_generalized_logistic_l_moments(expanded_vals, min_samples=min_calibration_years)
+
+    # Transform target series
+    def _transform_series(subset_mask, xi, alpha, k):
+        indices = np.where(subset_mask)[0]
+        z_vals = np.full(len(indices), np.nan, dtype=np.float64)
+        p_vals = np.full(len(indices), np.nan, dtype=np.float64)
+        guards = []
+        for j, idx in enumerate(indices):
+            v = d_seasonal_series[idx]
+            if math.isfinite(v):
+                p = cdf_generalized_logistic(v, xi, alpha, k)
+                z, g = compute_standardized_z_score(p, return_safeguard=True)
+                z_vals[j] = z
+                p_vals[j] = p
+                guards.append(g)
+            else:
+                guards.append("NAN_INPUT")
+        return years[indices], z_vals, p_vals, guards
+
+    # Protocol 1: Retrospective full series
+    retro_years, spei3_retro, p_retro, g_retro = _transform_series(np.ones(len(years), dtype=bool), xi_retro, alpha_retro, k_retro)
+
+    # Protocol 2: Training series (1981–2005)
+    train_years, spei3_train, p_train, g_train = _transform_series(
+        (years >= train_range[0]) & (years <= train_range[1]), xi_train, alpha_train, k_train
+    )
+
+    # Protocol 3: Validation series (2006–2014) with frozen training parameters
+    val_years, spei3_val, p_val, g_val = _transform_series(
+        (years >= val_range[0]) & (years <= val_range[1]), xi_train, alpha_train, k_train
+    )
+
+    # Protocol 4: Primary test series (2015–2024) with frozen training parameters
+    test_years, spei3_test, p_test, g_test = _transform_series(
+        (years >= test_range[0]) & (years <= test_range[1]), xi_train, alpha_train, k_train
+    )
+
+    # Protocol 5: Sensitivity test series (2015–2024) with 1981–2014 parameters
+    _, spei3_test_sens, p_test_sens, g_test_sens = _transform_series(
+        (years >= test_range[0]) & (years <= test_range[1]), xi_sens, alpha_sens, k_sens
+    )
+
+    # Quantify test holdout events
+    n_test_total = len(test_years)
+    drought_test_events = int(np.sum((spei3_test <= drought_threshold) & np.isfinite(spei3_test)))
+    non_drought_test_events = n_test_total - drought_test_events
+
+    return {
+        "status": "SUCCESS",
+        "protocols": {
+            "spei3_retro": {
+                "description": "Fixed 1991–2020 WMO climatology baseline for retrospective reconstruction",
+                "calibration_period": list(retro_range),
+                "years": [int(y) for y in retro_years],
+                "values": spei3_retro.tolist(),
+                "probabilities": p_retro.tolist(),
+                "safeguards": g_retro,
+                "parameters": {"xi": xi_retro, "alpha": alpha_retro, "k": k_retro, "n": len(retro_vals)}
+            },
+            "spei3_train": {
+                "description": "Calibrated on training observations (1981–2005, N=25)",
+                "calibration_period": list(train_range),
+                "years": [int(y) for y in train_years],
+                "values": spei3_train.tolist(),
+                "probabilities": p_train.tolist(),
+                "safeguards": g_train,
+                "parameters": {
+                    "xi": xi_train, "alpha": alpha_train, "k": k_train, "n": len(train_vals),
+                    "bootstrap_uncertainty": train_se
+                }
+            },
+            "spei3_validation": {
+                "description": "Standardized on validation holdout (2006–2014, N=9) using frozen 1981–2005 parameters",
+                "calibration_period": list(train_range),
+                "parameter_status": "FROZEN_AT_TRAINING_END",
+                "years": [int(y) for y in val_years],
+                "values": spei3_val.tolist(),
+                "probabilities": p_val.tolist(),
+                "safeguards": g_val
+            },
+            "spei3_test": {
+                "description": "PRIMARY test target (2015–2024, N=10) standardized with frozen 1981–2005 parameters",
+                "calibration_period": list(train_range),
+                "parameter_status": "FROZEN_BEFORE_EVALUATION",
+                "years": [int(y) for y in test_years],
+                "values": spei3_test.tolist(),
+                "probabilities": p_test.tolist(),
+                "safeguards": g_test,
+                "drought_threshold": drought_threshold,
+                "sample_size_qualification": {
+                    "n_total": n_test_total,
+                    "drought_events": drought_test_events,
+                    "non_drought_events": non_drought_test_events,
+                    "status": "PRELIMINARY_EVIDENCE_SMALL_SAMPLE"
+                }
+            },
+            "spei3_test_expanded_sensitivity": {
+                "description": "SENSITIVITY test target (2015–2024, N=10) calibrated on 1981–2014 (N=34)",
+                "calibration_period": [train_range[0], val_range[1]],
+                "parameter_status": "PRE_TEST_EXPANDED_SENSITIVITY",
+                "years": [int(y) for y in test_years],
+                "values": spei3_test_sens.tolist(),
+                "probabilities": p_test_sens.tolist(),
+                "safeguards": g_test_sens,
+                "parameters": {"xi": xi_sens, "alpha": alpha_sens, "k": k_sens, "n": len(expanded_vals)}
+            }
+        }
     }
 
 

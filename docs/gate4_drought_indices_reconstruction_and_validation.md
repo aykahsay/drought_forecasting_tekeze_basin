@@ -10,13 +10,17 @@
 
 ### 1. Potential Evapotranspiration (PET) Formulation & Audit
 
-#### 1.1 Hargreaves–Samani (1985) Daily-Extrema Formulation
-In semi-arid, high-elevation river basins like the Tekezé ($67,135.4\text{ km}^2$, mean elevation $\sim 1,850\text{ m}$), radiation and temperature extrema drive evaporative demand. The Hargreaves–Samani formulation is:
-$$\text{PET}_d = 0.0023 \cdot R_{a,d} \cdot (T_{\text{mean},d} + 17.8) \cdot \sqrt{T_{\max,d} - T_{\min,d}}$$
+#### 1.1 Hargreaves–Samani (1985; FAO-56) Formulation & Radiation Units
+In semi-arid, high-elevation river basins like the Tekezé ($67,135.4\text{ km}^2$, mean elevation $\sim 1,850\text{ m}$), radiation and temperature extrema drive evaporative demand. In the conventional Hargreaves–Samani formulation (FAO-56 Eq. 52; Allen et al. 1998):
+$$\text{PET}_d = 0.0023 \times 0.408 \times R_{a,d} \times (T_{\text{mean},d} + 17.8) \sqrt{T_{\max,d} - T_{\min,d}} \quad [\text{mm/day}]$$
+$$\equiv 0.0023 \times R_{a,\text{eq},d} \times (T_{\text{mean},d} + 17.8) \sqrt{T_{\max,d} - T_{\min,d}} \quad [\text{mm/day}]$$
 Where:
-* $R_{a,d}$ is extraterrestrial solar radiation ($\text{mm/day}$ equivalent) at catchment mean latitude ($\approx 13.2^\circ\text{N}$).
+* $R_{a,d}$ is extraterrestrial solar radiation expressed in conventional energy units ($\text{MJ}\cdot\text{m}^{-2}\cdot\text{day}^{-1}$) calculated from astronomical relations (solar constant $G_{sc} = 0.0820\text{ MJ}\cdot\text{m}^{-2}\cdot\text{min}^{-1}$, catchment latitude $\phi \approx 13.2^\circ\text{N}$, and day of year).
+* $0.408 \text{ mm}/(\text{MJ}\cdot\text{m}^{-2})$ is the inverse latent heat of vaporization ($\lambda \approx 2.45\text{ MJ/kg}$) converting radiative energy into equivalent water depth ($R_{a,\text{eq}} = 0.408 \cdot R_a$).
+* $0.0023 \times 0.408 = 0.0009384$.
 * $T_{\text{mean},d} = \frac{T_{\max,d} + T_{\min,d}}{2}$ in $^\circ\text{C}$.
 * $\Delta T_d = T_{\max,d} - T_{\min,d}$ is the daily diurnal temperature range (DTR).
+* Monthly accumulated PET is computed as the exact sum of daily values: $\text{PET}_{\text{month}} = \sum_{d=1}^{N_m} \text{PET}_d$, strictly preserving leap-year day counts (29 days in Feb for leap years vs 28 in non-leap).
 
 #### 1.2 Jensen's Inequality & Extrema Aggregation Constraint
 By Jensen's inequality for concave functions ($f(u) = \sqrt{u}$):
@@ -43,18 +47,28 @@ For each calendar month $t \in \{1, \dots, 528\}$:
 
 * **Boundary Condition Requirement:** Calculating the rolling 3-month water balance for January 1991 ($t = \text{1991-01}$) requires climate observations from **November 1990 and December 1990**, even though Nov/Dec 1990 fall outside the 1991–2020 calibration period. Likewise, the final target month (December 2024) requires October and November 2024. The pipeline maintains the complete continuous 528-month climate series for accumulation.
 
-#### 2.2 Dual-Target Calibration Architecture: Retrospective vs. Forecast-Evaluation Target
+#### 2.2 Multi-Protocol 4-Tier Target Calibration Schema (Zero Leakage)
 
-To guarantee that target construction does not leak future information into the 2015–2024 test evaluation set:
-1. **Retrospective Climate Index ($\text{SPEI-3}_{\text{retro}}$):**
-   * Calibrated over the declared 30-year WMO normal period (1991–2020; $N=30$ observations per calendar month).
-   * For each calendar month $m \in \{1, \dots, 12\}$, fit Hosking GLO parameters $(\xi_m, \alpha_m, k_m)$ on $\{D_{3, y, m} \mid y \in [1991, 2020]\}$.
-   * Used exclusively for retrospective climatological analysis, long-term historical drought audits, and dashboard historical visualization.
-2. **Forecast-Evaluation Target ($\text{SPEI-3}_{\text{eval}}$):**
-   * Calibrated strictly adhering to each evaluation fold's temporal information cutoff.
-   * For models evaluated on the frozen 2015–2024 holdout, distribution parameters are fitted **exclusively using data ending before the evaluation period** (e.g. fixed 1981–2010 baseline, or rolling expanding windows strictly prior to issue date).
-   * Observations from 2015–2024 **never** enter target standardization.
-   * $\text{SPEI-3}_{\text{retro}}$ and $\text{SPEI-3}_{\text{eval}}$ are documented as distinct indices and are not assumed to be numerically interchangeable.
+To guarantee that target construction strictly avoids information leakage and prevents conflation of different calibration baselines, the pipeline produces and stores four separate standardized series:
+
+1. **Retrospective Climatological Target (`spei3_retro`):**
+   * Calibrated over the declared 30-year WMO normal period (**1991–2020**; $N=30$ observations per calendar month).
+   * Used exclusively for retrospective historical hazard analysis, decadal climatology, and long-term monitoring.
+2. **Training-Era Target (`spei3_train`):**
+   * Calibrated strictly using observations from the training split (**1981–2005**, $N=25$ observations per calendar month).
+   * Quantifies historical drought severity on the training era with training-available information only.
+3. **Validation Target (`spei3_validation`):**
+   * Standardized across the validation split (**2006–2014**, $N=9$) using **FROZEN 1981–2005 distribution parameters**.
+   * Under no circumstances are validation observations used to estimate distribution parameters.
+4. **Primary Test Target (`spei3_test`):**
+   * Standardized across the frozen holdout split (**2015–2024**, $N=10$) using **FROZEN 1981–2005 distribution parameters**.
+   * Zero test observations are used in parameter fitting, ensuring a common mathematical scale between training and test holdouts.
+5. **Auxiliary Sensitivity Target (`spei3_test_expanded_sensitivity`):**
+   * An alternative test target standardized using parameters fitted on the expanded pre-test archive (**1981–2014**, $N=34$).
+   * Maintained and reported strictly as a separately labelled sensitivity comparison to evaluate the trade-off between sample size ($N=25$ vs $N=34$) and temporal stationarity.
+
+* **Parameter Uncertainty & Sample Size Reality ($N=25$):**
+  Estimating a three-parameter Generalized Logistic distribution $(\xi, \alpha, k)$ from $N=25$ observations incurs shape parameter sampling variance. The pipeline computes parametric bootstrap standard errors for $(\xi, \alpha, k)$ and outputs them in target metadata.
 
 #### 2.3 Gamma-Fitted SPI-3 (Thom Shape Approximation)
 * Accumulated precipitation $P_{3,t}$ is standardized using **Thom's (1958) approximation for Gamma shape estimation** with corresponding scale estimate $\hat{\beta} = \bar{x}/\hat{\alpha}$, and zero-adjustment $H(x) = q + (1 - q)G(x)$.

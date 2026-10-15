@@ -22,11 +22,16 @@ import pytest
 import scipy.special as sp
 
 from agriminds.climate.spei_calculator import (
+    calculate_extraterrestrial_radiation_ra,
+    calculate_hargreaves_daily_pet,
+    calculate_hargreaves_monthly_pet_from_daily,
+    calculate_hargreaves_pet,
     cdf_gamma_spi,
     cdf_generalized_logistic,
     compute_standardized_z_score,
     fit_gamma_spi,
     fit_generalized_logistic_l_moments,
+    generate_four_tier_spei_targets,
 )
 
 FIXTURES_PATH = Path(__file__).resolve().parent / "fixtures" / "r_spei_lmom_reference_benchmark.json"
@@ -227,3 +232,193 @@ def test_glo_monotonicity_and_symmetric_fitting():
     assert math.isfinite(k_fit)
     # Skewness should be near zero (|k| < 0.15)
     assert abs(k_fit) < 0.15
+
+
+def test_hargreaves_radiation_units_fao56_benchmark():
+    """
+    Verify Hargreaves extraterrestrial radiation Ra and PET against FAO-56 trusted numerical examples.
+    
+    Standard: Allen et al. (1998) FAO-56 Annex 3 / Eq. 21-28 & 52:
+      - Location: Latitude 45.0°N, Julian Day 145 (May 25).
+      - Ra in energy units: ~40.5 MJ m^-2 day^-1.
+      - Equivalent evaporation: Ra_eq = 0.408 * Ra_MJ ~= 16.5 mm day^-1.
+      - PET_d = 0.0023 * 0.408 * Ra_MJ * (T_mean + 17.8) * sqrt(T_max - T_min).
+      - For T_max = 26.6°C, T_min = 14.8°C (T_mean = 20.7°C, DTR = 11.8°C):
+        PET_d ~= 5.03 mm/day.
+    """
+    lat = 45.0
+    j_day = 145
+
+    # 1. Energy units Ra (MJ m^-2 day^-1)
+    ra_mj = calculate_extraterrestrial_radiation_ra(
+        latitude_deg=lat, month=5, days_in_month=31, day_of_year=j_day, return_energy_units=True
+    )
+    assert ra_mj == pytest.approx(40.49, abs=0.5)
+
+    # 2. Equivalent water depth Ra_eq (mm day^-1)
+    ra_mm = calculate_extraterrestrial_radiation_ra(
+        latitude_deg=lat, month=5, days_in_month=31, day_of_year=j_day, return_energy_units=False
+    )
+    assert ra_mm == pytest.approx(40.49 * 0.408, abs=0.2)
+    assert ra_mm == pytest.approx(16.52, abs=0.2)
+
+    # 3. Exact ratio consistency
+    assert (ra_mm / ra_mj) == pytest.approx(0.408, abs=1e-5)
+
+    # 4. Daily PET verification
+    tmax, tmin = 26.6, 14.8
+    pet_d = calculate_hargreaves_daily_pet(tmax, tmin, latitude_deg=lat, day_of_year=j_day)
+    assert pet_d == pytest.approx(5.03, abs=0.1)
+
+
+def test_hargreaves_leap_year_and_daily_summation():
+    """
+    Verify leap-year day counts (29 days in Feb 1984 vs 28 in Feb 1985)
+    and exact consistency between monthly daily sum and monthly PET accumulation.
+    """
+    lat = 13.2  # Tekeze catchment mean latitude
+
+    # Feb 1984 is a leap year (29 days)
+    tmax_leap = [28.0] * 29
+    tmin_leap = [14.0] * 29
+    pet_leap = calculate_hargreaves_monthly_pet_from_daily(tmax_leap, tmin_leap, latitude_deg=lat, year=1984, month=2)
+    assert math.isfinite(pet_leap)
+    assert pet_leap > 0.0
+
+    # Feb 1985 is a non-leap year (28 days)
+    tmax_nonleap = [28.0] * 28
+    tmin_nonleap = [14.0] * 28
+    pet_nonleap = calculate_hargreaves_monthly_pet_from_daily(tmax_nonleap, tmin_nonleap, latitude_deg=lat, year=1985, month=2)
+    assert math.isfinite(pet_nonleap)
+
+    # Exactly 29/28 ratio for identical temperatures
+    expected_ratio = 29.0 / 28.0
+    # Small difference due to changing solar declination across days 32..60
+    assert (pet_leap / pet_nonleap) == pytest.approx(expected_ratio, rel=0.03)
+
+    # Mismatched array length must return NaN
+    assert math.isnan(calculate_hargreaves_monthly_pet_from_daily(tmax_leap[:25], tmin_leap, lat, 1984, 2))
+
+
+def test_hargreaves_latitude_dependence_and_temperature_validity():
+    """
+    Verify latitude-dependent radiation trends and strict input validity rejection.
+    """
+    # Solstice Day 172 (Northern Summer): High latitude receives long daylight, winter hemisphere receives zero
+    ra_equator = calculate_extraterrestrial_radiation_ra(0.0, 6, 30, day_of_year=172, return_energy_units=True)
+    ra_north_high = calculate_extraterrestrial_radiation_ra(60.0, 6, 30, day_of_year=172, return_energy_units=True)
+    ra_south_pole = calculate_extraterrestrial_radiation_ra(-80.0, 6, 30, day_of_year=172, return_energy_units=True)
+
+    assert ra_equator > 0.0
+    assert ra_north_high > 35.0  # Midnight sun conditions
+    assert ra_south_pole == 0.0   # Polar night
+
+    # Temperature validity
+    # 1. Tmax < Tmin rejected
+    assert math.isnan(calculate_hargreaves_daily_pet(t_max_c=15.0, t_min_c=20.0, latitude_deg=13.2, day_of_year=100))
+    # 2. Non-finite rejected
+    assert math.isnan(calculate_hargreaves_daily_pet(float("nan"), 10.0, 13.2, 100))
+    assert math.isnan(calculate_hargreaves_daily_pet(25.0, float("inf"), 13.2, 100))
+    # 3. Unphysical bounds rejected
+    assert math.isnan(calculate_hargreaves_daily_pet(85.0, 10.0, 13.2, 100))
+
+
+def test_glo_extreme_tail_endpoints_and_deliberate_safeguards():
+    """
+    Verify deliberate float64 tail endpoint handling in normal score transformation:
+      - When probabilities round to 0.0 or 1.0 in IEEE 754 precision, ndtri(0) and ndtri(1)
+        must NOT silently produce infinite (+/- inf) or NaN values.
+      - Finite bounds [-5.0, 5.0] and audit labels are recorded.
+    """
+    # Exact endpoints
+    z_zero, guard_zero = compute_standardized_z_score(0.0, return_safeguard=True)
+    assert z_zero == -5.0
+    assert guard_zero == "LOWER_ENDPOINT_SAFEGUARD"
+
+    z_one, guard_one = compute_standardized_z_score(1.0, return_safeguard=True)
+    assert z_one == 5.0
+    assert guard_one == "UPPER_ENDPOINT_SAFEGUARD"
+
+    # Extreme tail probabilities rounding to endpoints
+    z_tiny, guard_tiny = compute_standardized_z_score(1e-25, return_safeguard=True)
+    assert -5.0 <= z_tiny <= -4.5
+    assert math.isfinite(z_tiny)
+
+    z_near_one, guard_near_one = compute_standardized_z_score(1.0 - 1e-25, return_safeguard=True)
+    assert 4.5 <= z_near_one <= 5.0
+    assert math.isfinite(z_near_one)
+
+    # High support boundary case: k > 0 upper bound rounding
+    xi, alpha, k = 10.0, 15.0, 0.5
+    x_bound = xi + alpha / k  # 40.0
+    # Directly at or slightly below upper bound
+    p_bound = cdf_generalized_logistic(x_bound, xi, alpha, k)
+    assert p_bound == 1.0
+    z_b, g_b = compute_standardized_z_score(p_bound, return_safeguard=True)
+    assert math.isfinite(z_b)
+    assert z_b == 5.0
+    assert g_b == "UPPER_ENDPOINT_SAFEGUARD"
+
+
+def test_four_tier_drought_target_schema_and_frozen_calibration():
+    """
+    Verify the 4-tier target calibration schema:
+      1. spei3_retro uses 1991–2020 parameters (WMO baseline).
+      2. spei3_train uses 1981–2005 parameters (N=25) and includes bootstrap SE.
+      3. spei3_validation uses FROZEN 1981–2005 parameters.
+      4. spei3_test uses FROZEN 1981–2005 parameters (no test data leakage).
+      5. spei3_test_expanded_sensitivity uses 1981–2014 parameters.
+      6. Sample size qualification reports 10 total cases with event counts.
+    """
+    years = np.arange(1981, 2025)
+    rng = np.random.default_rng(seed=42)
+    # Synthetic climatic water balance D (mean ~ 50 mm, std ~ 80 mm)
+    d_synthetic = rng.normal(loc=50.0, scale=80.0, size=len(years))
+    # Inject historical 1984 severe drought
+    d_synthetic[years == 1984] = -180.0
+
+    result = generate_four_tier_spei_targets(
+        d_synthetic,
+        years,
+        train_range=(1981, 2005),
+        val_range=(2006, 2014),
+        test_range=(2015, 2024),
+        retro_range=(1991, 2020),
+        min_calibration_years=20
+    )
+
+    assert result["status"] == "SUCCESS"
+    protocols = result["protocols"]
+
+    # 1. spei3_retro
+    retro = protocols["spei3_retro"]
+    assert retro["calibration_period"] == [1991, 2020]
+    assert len(retro["values"]) == len(years)
+
+    # 2. spei3_train
+    train = protocols["spei3_train"]
+    assert train["calibration_period"] == [1981, 2005]
+    assert len(train["values"]) == 25
+    train_params = train["parameters"]
+    assert "bootstrap_uncertainty" in train_params
+    assert math.isfinite(train_params["bootstrap_uncertainty"]["k_se"])
+
+    # 3. spei3_validation
+    val = protocols["spei3_validation"]
+    assert val["parameter_status"] == "FROZEN_AT_TRAINING_END"
+    assert len(val["values"]) == 9
+
+    # 4. spei3_test
+    test = protocols["spei3_test"]
+    assert test["parameter_status"] == "FROZEN_BEFORE_EVALUATION"
+    assert len(test["values"]) == 10
+    qualification = test["sample_size_qualification"]
+    assert qualification["n_total"] == 10
+    assert qualification["drought_events"] + qualification["non_drought_events"] == 10
+    assert qualification["status"] == "PRELIMINARY_EVIDENCE_SMALL_SAMPLE"
+
+    # 5. spei3_test_expanded_sensitivity
+    test_sens = protocols["spei3_test_expanded_sensitivity"]
+    assert test_sens["parameter_status"] == "PRE_TEST_EXPANDED_SENSITIVITY"
+    assert test_sens["calibration_period"] == [1981, 2014]
+
