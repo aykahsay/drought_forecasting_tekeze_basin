@@ -9,18 +9,27 @@
     "1050648030": {
       "pfaf_id": 17227,
       "sub_area_attr_km2": 38225.7,
+      "spherical_calc_km2": 38225.81,
+      "diff_km2": 0.1143,
+      "diff_pct": 0.0003,
       "up_area_attr_km2": 67134.3,
       "next_down": 1050538700
     },
     "1050692800": {
       "pfaf_id": 17228,
       "sub_area_attr_km2": 7592.7,
+      "spherical_calc_km2": 7592.68,
+      "diff_km2": 0.017,
+      "diff_pct": 0.0002,
       "up_area_attr_km2": 7592.7,
       "next_down": 1050648030
     },
     "1050692900": {
       "pfaf_id": 17229,
       "sub_area_attr_km2": 21317.0,
+      "spherical_calc_km2": 21317.07,
+      "diff_km2": 0.0709,
+      "diff_pct": 0.0003,
       "up_area_attr_km2": 21317.0,
       "next_down": 1050648030
     }
@@ -54,5 +63,10 @@
     "spherical_parts_sum_km2": 67135.57,
     "diff_sub_area_vs_calc_km2": 0.1682,
     "pct_diff_sub_area_vs_calc": 0.0003
+  },
+  "reconciliation_of_historical_draft_discrepancy": {
+    "authoritative_source": "HydroBASINS Africa Level 5 standard product (hybas_af_lev05_v1c.shp)",
+    "download_url": "https://data.hydrosheds.org/file/hydrobasins/standard/hybas_af_lev05_v1c.zip",
+    "historical_draft_values_note": "Earlier project drafts (REV3/REV4) cited 46,396.1 km\u00b2, 8,527.2 km\u00b2, 12,212.1 km\u00b2 (sum 67,135.4 km\u00b2), which reflected an unverified heuristic attempt to match the nominal 46,396 km\u00b2 text description of the truncated single-polygon HDX shapefile. The official HydroBASINS Level 5 vector DBF attributes are 38,225.7 km\u00b2 (1050648030), 7,592.7 km\u00b2 (1050692800), and 21,317.0 km\u00b2 (1050692900), which agree with independent spherical excess calculations within 0.0003% for every individual polygon."
   }
 }

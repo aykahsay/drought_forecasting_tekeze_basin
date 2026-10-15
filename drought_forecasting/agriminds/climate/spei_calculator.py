@@ -510,6 +510,13 @@ def fit_gamma_spi(
     with Thom (1958) approximation and computes zero-precipitation probability q
     following McKee et al. (1993) and WMO (2012) standard.
 
+    Edge-Case Safeguards (REV7.2 Standard):
+      - Sample size: Raises ValueError if finite sample count < min_samples.
+      - Degenerate all-zeros (q=1.0): Raises ValueError if all observations are zero.
+      - Positive sample size: Raises ValueError if positive observations < 10.
+      - Non-zero variance (A <= 0): Raises ValueError if all positive values are identical (A <= 1e-12).
+      - Parameter bounds: Raises ValueError if alpha_g <= 0 or beta_g <= 0 or non-finite.
+
     Args:
         precip_data: 1D array of seasonal accumulated precipitation in mm.
         min_samples: Minimum required calibration observations.
@@ -517,29 +524,44 @@ def fit_gamma_spi(
     Returns:
         (alpha, beta, q_zero) -> (shape, scale, zero_fraction)
     """
+    if precip_data is None or len(precip_data) == 0:
+        raise ValueError("Empty or None precipitation series supplied to fit_gamma_spi.")
+
     clean_p = precip_data[np.isfinite(precip_data)]
     n = len(clean_p)
     if n < min_samples:
         raise ValueError(f"Insufficient valid calibration observations ({n} < {min_samples}) for Gamma SPI.")
 
-    m_zeros = int(np.sum(clean_p <= 0.0))
+    if np.any(clean_p < 0.0):
+        raise ValueError("Physical violation: negative precipitation values present in calibration sample.")
+
+    m_zeros = int(np.sum(clean_p == 0.0))
     q_zero = float(m_zeros / n)
+
+    if q_zero >= 1.0:
+        raise ValueError("Degenerate sample: 100% of observations are zero precipitation (q_zero=1.0). Gamma distribution cannot be fitted.")
 
     positive_p = clean_p[clean_p > 0.0]
     if len(positive_p) < 10:
-        raise ValueError("Too few non-zero precipitation observations to fit Gamma distribution.")
+        raise ValueError(f"Too few positive precipitation observations ({len(positive_p)} < 10) to reliably estimate Gamma parameters.")
 
     mean_p = float(np.mean(positive_p))
+    if mean_p <= 0.0 or not math.isfinite(mean_p):
+        raise ValueError("Invalid positive sample mean for Gamma fitting.")
+
     log_mean = math.log(mean_p)
     mean_log = float(np.mean(np.log(positive_p)))
 
     A = log_mean - mean_log
-    if A <= 1e-6:
-        A = 1e-6
+    if A <= 1e-12:
+        raise ValueError(f"Identical or near-zero variance positive values (A={A:.2e} <= 0). Thom MLE cannot converge.")
 
     # Thom (1958) Maximum Likelihood estimator for shape alpha
     alpha_g = (1.0 / (4.0 * A)) * (1.0 + math.sqrt(1.0 + 4.0 * A / 3.0))
     beta_g = mean_p / alpha_g
+
+    if not (math.isfinite(alpha_g) and alpha_g > 0.0 and math.isfinite(beta_g) and beta_g > 0.0):
+        raise ValueError(f"Non-physical fitted Gamma parameters: alpha={alpha_g}, beta={beta_g}.")
 
     return float(alpha_g), float(beta_g), float(q_zero)
 
@@ -551,7 +573,16 @@ def cdf_gamma_spi(p: float, alpha: float, beta: float, q_zero: float) -> float:
     if not math.isfinite(p):
         return float("nan")
 
-    if p <= 0.0:
+    if not (math.isfinite(alpha) and alpha > 0.0 and math.isfinite(beta) and beta > 0.0):
+        return float("nan")
+
+    if not (math.isfinite(q_zero) and 0.0 <= q_zero <= 1.0):
+        return float("nan")
+
+    if p < 0.0:
+        return float("nan")
+
+    if p == 0.0:
         return float(np.clip(q_zero, 1e-6, 1.0 - 1e-6))
 
     # Incomplete gamma function G(p)
@@ -1052,7 +1083,15 @@ def check_glo_goodness_of_fit(
                 continue
 
         if len(boot_stats) >= 20:
-            p_boot = float(np.mean(np.array(boot_stats) >= d_obs))
+            # Finite simulation correction (Davison & Hinkley 1997): p_boot = (1 + sum(D* >= D_obs)) / (B + 1)
+            b_valid = len(boot_stats)
+            n_exceed = int(np.sum(np.array(boot_stats) >= d_obs))
+            p_boot = float((1.0 + n_exceed) / (b_valid + 1.0))
+            mc_se = float(math.sqrt(max(0.0, p_boot * (1.0 - p_boot) / b_valid)))
+        else:
+            mc_se = float("nan")
+    else:
+        mc_se = float("nan")
 
     # 3. Q-Q Fit Diagnostics
     qq_r2 = float("nan")
@@ -1078,11 +1117,12 @@ def check_glo_goodness_of_fit(
             "p_value": ks_pval_asymp,
             "p_value_asymptotic_unadjusted": ks_pval_asymp,
             "p_value_parametric_bootstrap": p_boot,
+            "monte_carlo_standard_error": mc_se,
             "bootstrap_replicates": len(boot_stats),
             "adequate_fit_at_05": bool(ks_pval_asymp > 0.05) if math.isfinite(ks_pval_asymp) else None,
             "adequate_fit_bootstrap_05": bool(p_boot > 0.05) if math.isfinite(p_boot) else None,
-            "qualification": "Descriptive KS statistic retained; bootstrap refitting calibrated for small sample (N=24-25) parameter estimation.",
-            "calibration_qualification": "Descriptive KS statistic retained; bootstrap refitting calibrated for small sample (N=24-25) parameter estimation."
+            "qualification": "Descriptive KS statistic retained; parametric-bootstrap-calibrated KS test with parameter refitting (Stute et al. 1993; Hosking & Wallis 1997; finite-simulation Davison & Hinkley 1997 correction).",
+            "calibration_qualification": "Descriptive KS statistic retained; parametric-bootstrap-calibrated KS test with parameter refitting (Stute et al. 1993; Hosking & Wallis 1997; finite-simulation Davison & Hinkley 1997 correction)."
         },
         "qq_diagnostics": {
             "r_squared": qq_r2,

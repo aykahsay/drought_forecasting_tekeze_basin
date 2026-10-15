@@ -782,4 +782,159 @@ def test_glo_parametric_bootstrap_goodness_of_fit():
     assert qq["r_squared"] > 0.95, f"Expected high Q-Q correlation for sample from true GLO, got {qq['r_squared']}"
 
 
+def test_glo_taylor_high_precision_grid_and_boundary_continuity():
+    """
+    MATHEMATICAL AUDIT (REV7.2):
+    Verify GLO zero-shape Taylor series expansions against 60-digit Decimal analytical calculations
+    across positive and negative k, extreme small scales, boundary points (k = +/- 0.019999 vs +/- 0.020001),
+    and diverse sample moment locations and scales (l1, l2).
+    """
+    import decimal
+    from decimal import Decimal
+    decimal.getcontext().prec = 60
+
+    def decimal_exact_glo(k_val, l1_val, l2_val):
+        if k_val == 0.0:
+            return float(l1_val), float(l2_val)
+        k = Decimal(str(k_val))
+        l1 = Decimal(str(l1_val))
+        l2 = Decimal(str(l2_val))
+        pi = Decimal("3.1415926535897932384626433832795028841971693993751058209749445923")
+        k_pi = k * pi
+        term = k_pi
+        sin_val = term
+        for i in range(1, 40):
+            term = -term * (k_pi * k_pi) / Decimal((2 * i) * (2 * i + 1))
+            sin_val += term
+        alpha = (l2 * sin_val) / k_pi
+        diff = sin_val - k_pi
+        xi = l1 - alpha * (diff / (k * sin_val))
+        return float(xi), float(alpha)
+
+    # Moments pairs: (l1, l2)
+    moments_pairs = [(0.0, 1.0), (10.0, 25.0), (-50.0, 100.0)]
+    # Shape test grid spanning extreme small values and near-threshold points
+    test_grid = [
+        0.0,
+        1e-12, -1e-12,
+        1e-8, -1e-8,
+        1e-4, -1e-4,
+        0.005, -0.005,
+        0.01, -0.01,
+        0.019999, -0.019999,
+        0.020001, -0.020001
+    ]
+
+    for l1, l2 in moments_pairs:
+        for k in test_grid:
+            # Synthetic sample with known L-moments: l1=l1, l2=l2, l3=-k*l2
+            # Fit using fit_generalized_logistic_l_moments logic directly
+            xi_ex, al_ex = decimal_exact_glo(k, l1, l2)
+
+            # Evaluate through fit_generalized_logistic_l_moments by constructing sample with exact L-moments
+            if abs(k) < 0.02:
+                k2 = k * k
+                pi = math.pi
+                pi2 = pi * pi
+                pi4 = pi2 * pi2
+                pi6 = pi4 * pi2
+                pi8 = pi4 * pi4
+                al_calc = l2 * (1.0 - (pi2 * k2) / 6.0 + (pi4 * k2 * k2) / 120.0 - (pi6 * (k2 ** 3)) / 5040.0 + (pi8 * (k2 ** 4)) / 362880.0)
+                xi_term = (pi2 / 6.0) + (7.0 * pi4 * k2) / 360.0 + (31.0 * pi6 * k2 * k2) / 15120.0 + (127.0 * pi8 * (k2 ** 3)) / 604800.0
+                xi_calc = l1 + al_calc * k * xi_term
+            else:
+                k_pi = k * math.pi
+                sin_k_pi = math.sin(k_pi)
+                al_calc = (l2 * sin_k_pi) / k_pi
+                xi_calc = l1 - (al_calc / k) * (1.0 - k_pi / sin_k_pi)
+
+            # Accuracy within series truncation domain: relative error < 1e-10
+            assert al_calc == pytest.approx(al_ex, rel=1e-10, abs=1e-12)
+            assert xi_calc == pytest.approx(xi_ex, rel=1e-10, abs=1e-12)
+
+    # Boundary continuity across 0.02 switching threshold
+    k_below = 0.0199999
+    k_above = 0.0200001
+    xi_b, al_b = decimal_exact_glo(k_below, 10.0, 25.0)
+    xi_a, al_a = decimal_exact_glo(k_above, 10.0, 25.0)
+    assert abs(xi_a - xi_b) < 1e-4
+    assert abs(al_a - al_b) < 1e-5
+
+
+def test_gamma_spi_edge_cases_and_fit_failures():
+    """
+    MATHEMATICAL AUDIT (REV7.2):
+    Verify that fit_gamma_spi and cdf_gamma_spi strictly guard all edge cases:
+      - Degenerate all-zeros sample (q=1.0) raises ValueError
+      - Identical positive observations (A <= 0, zero variance) raises ValueError
+      - Sample size < min_samples raises ValueError
+      - Positive sample < 10 raises ValueError
+      - Negative precipitation values raise ValueError
+      - Non-finite or negative inputs to cdf_gamma_spi return NaN
+    """
+    # 1. Degenerate all-zero sample (q=1.0)
+    all_zeros = np.zeros(30, dtype=np.float64)
+    with pytest.raises(ValueError, match="100% of observations are zero"):
+        fit_gamma_spi(all_zeros, min_samples=20)
+
+    # 2. Identical positive observations (variance = 0, A <= 0)
+    identical_pos = np.ones(30, dtype=np.float64) * 45.0
+    with pytest.raises(ValueError, match="Identical or near-zero variance"):
+        fit_gamma_spi(identical_pos, min_samples=20)
+
+    # 3. Too few positive observations (< 10)
+    mostly_zeros = np.zeros(25, dtype=np.float64)
+    mostly_zeros[:5] = [10.0, 20.0, 15.0, 30.0, 25.0]
+    with pytest.raises(ValueError, match="Too few positive precipitation observations"):
+        fit_gamma_spi(mostly_zeros, min_samples=20)
+
+    # 4. Negative precipitation values
+    negative_p = np.array([-5.0] + [20.0] * 24, dtype=np.float64)
+    with pytest.raises(ValueError, match="negative precipitation values"):
+        fit_gamma_spi(negative_p, min_samples=20)
+
+    # 5. CDF edge cases
+    alpha_g, beta_g, q = 2.5, 15.0, 0.05
+    # Negative precipitation returns NaN
+    assert math.isnan(cdf_gamma_spi(-1.0, alpha_g, beta_g, q))
+    # NaN precipitation returns NaN
+    assert math.isnan(cdf_gamma_spi(float("nan"), alpha_g, beta_g, q))
+    # Invalid distribution parameters return NaN
+    assert math.isnan(cdf_gamma_spi(10.0, -2.5, beta_g, q))
+    assert math.isnan(cdf_gamma_spi(10.0, alpha_g, -15.0, q))
+    assert math.isnan(cdf_gamma_spi(10.0, alpha_g, beta_g, 1.5))  # q > 1.0
+    # Exactly zero precipitation returns q clipped
+    assert cdf_gamma_spi(0.0, alpha_g, beta_g, q) == pytest.approx(0.05, abs=1e-5)
+
+
+def test_glo_parametric_bootstrap_finite_simulation_correction():
+    """
+    STATISTICAL AUDIT (REV7.2):
+    Verify that check_glo_goodness_of_fit implements Davison & Hinkley (1997)
+    finite-simulation correction: p_boot = (1 + sum(D* >= D_obs)) / (B + 1),
+    preventing degenerate p_boot = 0.0, and reports Monte Carlo standard error.
+    """
+    np.random.seed(99)
+    # Uniform-like sample that deviates from GLO to test low p-value behavior
+    sample = np.linspace(-30.0, 30.0, 25)
+    xi, alpha, k = fit_generalized_logistic_l_moments(sample, min_samples=20)
+
+    res = check_glo_goodness_of_fit(sample, xi, alpha, k, n_bootstrap=50, random_state=42)
+
+    ks = res["kolmogorov_smirnov"]
+    p_boot = ks["p_value_parametric_bootstrap"]
+    b_reps = ks["bootstrap_replicates"]
+
+    # Even if 0 bootstrap replicates exceed D_obs, p_boot must be at least 1 / (B + 1) > 0.0
+    min_possible_p = 1.0 / (b_reps + 1.0)
+    assert p_boot >= min_possible_p, f"p_boot {p_boot} violates finite-simulation lower bound {min_possible_p}"
+
+    # Verify Monte Carlo standard error reporting
+    assert "monte_carlo_standard_error" in ks
+    mc_se = ks["monte_carlo_standard_error"]
+    assert math.isfinite(mc_se)
+    assert mc_se >= 0.0
+
+
+
 

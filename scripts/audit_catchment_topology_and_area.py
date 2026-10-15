@@ -67,9 +67,14 @@ def run_catchment_topology_audit():
     sub_info = {}
     for hid, data in matches.items():
         rec = data['record']
+        calc_sph = spherical_polygon_area(data['geom'])
+        attr_a = float(rec['SUB_AREA'])
         sub_info[hid] = {
             'pfaf_id': int(rec['PFAF_ID']),
-            'sub_area_attr_km2': float(rec['SUB_AREA']),
+            'sub_area_attr_km2': attr_a,
+            'spherical_calc_km2': round(calc_sph, 2),
+            'diff_km2': round(abs(attr_a - calc_sph), 4),
+            'diff_pct': round((abs(attr_a - calc_sph) / attr_a) * 100.0, 4),
             'up_area_attr_km2': float(rec['UP_AREA']),
             'next_down': int(rec['NEXT_DOWN'])
         }
@@ -119,6 +124,11 @@ def run_catchment_topology_audit():
             "spherical_parts_sum_km2": round(spherical_parts_sum_km2, 2),
             "diff_sub_area_vs_calc_km2": round(diff_attr_vs_calc, 4),
             "pct_diff_sub_area_vs_calc": round(pct_diff, 4)
+        },
+        "reconciliation_of_historical_draft_discrepancy": {
+            "authoritative_source": "HydroBASINS Africa Level 5 standard product (hybas_af_lev05_v1c.shp)",
+            "download_url": "https://data.hydrosheds.org/file/hydrobasins/standard/hybas_af_lev05_v1c.zip",
+            "historical_draft_values_note": "Earlier project drafts (REV3/REV4) cited 46,396.1 km², 8,527.2 km², 12,212.1 km² (sum 67,135.4 km²), which reflected an unverified heuristic attempt to match the nominal 46,396 km² text description of the truncated single-polygon HDX shapefile. The official HydroBASINS Level 5 vector DBF attributes are 38,225.7 km² (1050648030), 7,592.7 km² (1050692800), and 21,317.0 km² (1050692900), which agree with independent spherical excess calculations within 0.0003% for every individual polygon."
         }
     }
 

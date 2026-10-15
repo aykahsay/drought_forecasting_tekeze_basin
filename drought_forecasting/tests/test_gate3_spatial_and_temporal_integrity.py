@@ -331,7 +331,12 @@ def test_gate3_catchment_topology_and_area_independent_audit():
     assert union_poly.geom_type == "Polygon", f"Expected single Polygon, got {union_poly.geom_type}"
     assert len(union_poly.interiors) == 0, "Tekezé union polygon has unexpected interior holes"
 
-    # 4. Area comparison reporting
+    # 4. Constituent sub-basin component areas and reconciliation against earlier draft values
+    # Individual attribute SUB_AREA values:
+    assert float(matches[1050648030]["record"]["SUB_AREA"]) == pytest.approx(38225.7, abs=0.1)
+    assert float(matches[1050692800]["record"]["SUB_AREA"]) == pytest.approx(7592.7, abs=0.1)
+    assert float(matches[1050692900]["record"]["SUB_AREA"]) == pytest.approx(21317.0, abs=0.1)
+
     sub_area_sum = sum(float(m["record"]["SUB_AREA"]) for m in matches.values())
     assert sub_area_sum == pytest.approx(67135.4, rel=1e-4)
 
@@ -341,6 +346,11 @@ def test_gate3_catchment_topology_and_area_independent_audit():
         for i_c in range(len(rad) - 1):
             tot += (rad[i_c + 1][0] - rad[i_c][0]) * (2.0 + math.sin(rad[i_c][1]) + math.sin(rad[i_c + 1][1]))
         return abs(tot * (r_km ** 2) / 2.0)
+
+    # Individual spherical excess area verification (within 0.0003% of DBF SUB_AREA)
+    assert ring_area(list(matches[1050648030]["geom"].exterior.coords)) == pytest.approx(38225.81, abs=1.0)
+    assert ring_area(list(matches[1050692800]["geom"].exterior.coords)) == pytest.approx(7592.68, abs=1.0)
+    assert ring_area(list(matches[1050692900]["geom"].exterior.coords)) == pytest.approx(21317.07, abs=1.0)
 
     spherical_union_km2 = ring_area(list(union_poly.exterior.coords))
     assert spherical_union_km2 == pytest.approx(67135.57, abs=1.0)

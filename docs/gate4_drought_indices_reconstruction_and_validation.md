@@ -1,8 +1,8 @@
 # AI-DREWS Gate 4: Drought Target Reconstruction & Historical Validation Specification
-## Hargreaves-Samani PET, Rolling Multi-Month SPEI-3 / SPI-3, and Historical Ground-Truth Auditing
+## Hargreaves-Samani PET, Rolling Multi-Month SPEI-3 / SPI-3, Target Scale Validation, and Historical Ground-Truth Auditing
 
-**Document ID:** `AI-DREWS-GATE4-SPEC-2026-10`  
-**Standard:** WMO-No. 100 Guidelines; Vicente-Serrano et al. (2010); Hargreaves & Samani (1985); FEWS NET Historical Archives  
+**Document ID:** `AI-DREWS-GATE4-SPEC-2026-10-REV7.2`  
+**Standard:** WMO-No. 100 Guidelines; Vicente-Serrano et al. (2010); Hargreaves & Samani (1985); FEWS NET Historical Archives; Hosking (1990)  
 **Status:** **SPECIFIED & BENCHMARKED (Full 1981–2024 Reconstruction Paused Pending Gate 1 Completion)**  
 **Implementation Modules:** [`drought_forecasting/agriminds/climate/spei_calculator.py`](file:///c:/Users/User/Desktop/AgriMinds/drought_forecasting/agriminds/climate/spei_calculator.py), [`scripts/process_temperature_daily_to_monthly.py`](file:///c:/Users/User/Desktop/AgriMinds/scripts/process_temperature_daily_to_monthly.py)
 
@@ -22,22 +22,19 @@ Where:
 * $\Delta T_d = T_{\max,d} - T_{\min,d}$ is the daily diurnal temperature range (DTR).
 * Monthly accumulated PET is computed as the exact sum of daily values: $\text{PET}_{\text{month}} = \sum_{d=1}^{N_m} \text{PET}_d$, strictly preserving leap-year day counts (29 days in Feb for leap years vs 28 in non-leap).
 
-#### 1.2 Jensen's Inequality & Extrema Aggregation Constraint
-By Jensen's inequality for concave functions ($f(u) = \sqrt{u}$):
-$$\mathbb{E}[\sqrt{\Delta T}] \le \sqrt{\mathbb{E}[\Delta T]}$$
-Substituting monthly average extrema $\sqrt{\bar{T}_{\max} - \bar{T}_{\min}}$ instead of averaging daily roots $\overline{\sqrt{T_{\max,d} - T_{\min,d}}}$ introduces a systematic positive bias whose magnitude depends on the daily diurnal range variance.
-* **Empirical Treatment:** Rather than asserting an arbitrary universal percentage bias, the pipeline computes both $\overline{\sqrt{\Delta T}}$ and $\sqrt{\overline{\Delta T}}$ across the actual observed daily series. In the 1984 benchmark year, this ratio ranged between 0.986 and 0.995.
-* **Gate 4 Standard:** The pipeline strictly derives daily extrema from hourly ERA5-Land (or daily NOAA CPC) and computes $\overline{\sqrt{\Delta T}}$ prior to monthly accumulation.
-
-#### 1.3 Comparative Reference Baselines
-1. **ECMWF ERA5-Land Penman-Monteith Reference:** Provides aerodynamic and surface resistance components for cross-validation against Hargreaves.
-2. **Thornthwaite (1948) Baseline:** Included in [`calculate_thornthwaite_monthly_pet`](file:///c:/Users/User/Desktop/AgriMinds/drought_forecasting/agriminds/climate/spei_calculator.py) for temperature-sensitivity benchmarking.
+#### 1.2 Jensen's Inequality & Synoptic Covariance
+By Jensen's inequality for concave functions ($g(u) = \sqrt{u}$):
+$$\overline{\sqrt{\text{DTR}}} \le \sqrt{\overline{\text{DTR}}}$$
+* **Covariance Qualification:** While Jensen's inequality guarantees that the average of daily roots is less than the root of the average diurnal range, this alone **does not establish the net direction of bias** in the complete Hargreaves–Samani equation.
+* In the full equation, daily radiation $R_a$, temperature $(T_{\text{mean}} + 17.8)$, and $\sqrt{\text{DTR}}$ covary synoptically across days:
+  $$\overline{R_a (T_{\text{mean}} + 17.8) \sqrt{\text{DTR}}} = \overline{R_a} \cdot \overline{(T_{\text{mean}} + 17.8)} \cdot \overline{\sqrt{\text{DTR}}} + \text{Covariance Terms}$$
+* Daily summation preserves day-to-day joint variation. The net empirical difference between daily summation and monthly-input calculation must be evaluated empirically for the Tekezé catchment rather than asserted a priori.
 
 ---
 
 ### 2. Multi-Month Standardized Drought Target Derivation
 
-#### 2.1 Rolling Water Balance & Standardization
+#### 2.1 Rolling Water Balance, 1980 Boundary Handling & Missing-Value Propagation
 For each calendar month $t \in \{1, \dots, 528\}$:
 1. Monthly water balance: $D_t = P_t - \text{PET}_t$.
 2. Rolling 3-month accumulation:
@@ -45,34 +42,32 @@ For each calendar month $t \in \{1, \dots, 528\}$:
 3. Rolling 3-month precipitation:
    $$P_{3,t} = \sum_{k=0}^2 P_{t-k}$$
 
-* **Boundary Condition Requirement:** Calculating the rolling 3-month water balance for January 1991 ($t = \text{1991-01}$) requires climate observations from **November 1990 and December 1990**, even though Nov/Dec 1990 fall outside the 1991–2020 calibration period. Likewise, the final target month (December 2024) requires October and November 2024. The pipeline maintains the complete continuous 528-month climate series for accumulation.
+* **Boundary Condition Reality:** Calculating rolling 3-month water balance for January and February 1981 requires observations from November and December 1980. Because CHIRPS-2.0 precipitation data starts in January 1981 and synthetic backfilling is prohibited, $D_{3,\text{Jan 1981}}$ and $D_{3,\text{Feb 1981}}$ are strictly `NaN`.
+* **528-Month Sequence Preservation:** The output archive maintains all 528 calendar months with explicit boolean validity (`is_valid`) and failure flags (`failure_reason`). A 528-row table never implies 528 valid drought scores.
+* **Exact Calibration Counts (1981–2005 Baseline):**
+  * Months 1 & 2 (Jan, Feb): $N = 24$ observations (1982–2005).
+  * Months 3–12 (Mar–Dec): $N = 25$ observations (1981–2005).
+  * Primary September Target: $N = 25$ observations (1981–2005).
 
-#### 2.2 Multi-Protocol 4-Tier Target Calibration Schema (Zero Leakage)
+#### 2.2 Target Scale Validation (REV7.2 Requirement)
+Before evaluating forecasting models in Gate 5, the empirical scale and stability of September-ending SPEI-3 under the frozen 1981–2005 training calibration must be reported:
+1. Valid training sample size ($N=25$).
+2. Fitted GLO parameters ($\hat{\xi}, \hat{\alpha}, \hat{k}$) and support boundary ($\hat{\xi} + \hat{\alpha}/\hat{k}$).
+3. Count of observations mapped through operational endpoint safeguards ($z = \pm 5.0$) or support boundaries.
+4. Categorical drought counts ($\le -1.0, -1.5, -2.0$) and non-drought counts.
+5. Sensitivity comparison against alternative 1981–2014 calibration ($N=34$).
 
-To guarantee that target construction strictly avoids information leakage and prevents conflation of different calibration baselines, the pipeline produces and stores four separate standardized series:
+#### 2.3 Multi-Protocol 4-Tier Target Calibration Schema (Zero Leakage)
+1. **Retrospective Climatological Target (`spei3_retro`):** Calibrated over 1991–2020 ($N=30$ per month) for retrospective hazard benchmarking.
+2. **Training-Era Target (`spei3_train`):** Calibrated strictly on 1981–2005 ($N=24$ for Jan/Feb, $N=25$ for Mar–Dec).
+3. **Validation Target (`spei3_validation`):** Standardized across 2006–2014 ($N=9$) using **frozen 1981–2005 parameters**.
+4. **Primary Test Target (`spei3_test`):** Standardized across 2015–2024 ($N=10$) using **frozen 1981–2005 parameters**.
+5. **Auxiliary Sensitivity Target (`spei3_test_expanded_sensitivity`):** Standardized using 1981–2014 calibration ($N=34$) as a documented sensitivity check.
 
-1. **Retrospective Climatological Target (`spei3_retro`):**
-   * Calibrated over the declared 30-year WMO normal period (**1991–2020**; $N=30$ observations per calendar month).
-   * Used exclusively for retrospective historical hazard analysis, decadal climatology, and long-term monitoring.
-2. **Training-Era Target (`spei3_train`):**
-   * Calibrated strictly using observations from the training split (**1981–2005**, $N=25$ observations per calendar month).
-   * Quantifies historical drought severity on the training era with training-available information only.
-3. **Validation Target (`spei3_validation`):**
-   * Standardized across the validation split (**2006–2014**, $N=9$) using **FROZEN 1981–2005 distribution parameters**.
-   * Under no circumstances are validation observations used to estimate distribution parameters.
-4. **Primary Test Target (`spei3_test`):**
-   * Standardized across the frozen holdout split (**2015–2024**, $N=10$) using **FROZEN 1981–2005 distribution parameters**.
-   * Zero test observations are used in parameter fitting, ensuring a common mathematical scale between training and test holdouts.
-5. **Auxiliary Sensitivity Target (`spei3_test_expanded_sensitivity`):**
-   * An alternative test target standardized using parameters fitted on the expanded pre-test archive (**1981–2014**, $N=34$).
-   * Maintained and reported strictly as a separately labelled sensitivity comparison to evaluate the trade-off between sample size ($N=25$ vs $N=34$) and temporal stationarity.
-
-* **Parameter Uncertainty & Sample Size Reality ($N=25$):**
-  Estimating a three-parameter Generalized Logistic distribution $(\xi, \alpha, k)$ from $N=25$ observations incurs shape parameter sampling variance. The pipeline computes parametric bootstrap standard errors for $(\xi, \alpha, k)$ and outputs them in target metadata.
-
-#### 2.3 Gamma-Fitted SPI-3 (Thom Shape Approximation)
-* Accumulated precipitation $P_{3,t}$ is standardized using **Thom's (1958) approximation for Gamma shape estimation** with corresponding scale estimate $\hat{\beta} = \bar{x}/\hat{\alpha}$, and zero-adjustment $H(x) = q + (1 - q)G(x)$.
-* **Prohibition:** Labeling a simple Gaussian $z$-score ($z = \frac{x - \mu}{\sigma}$) as SPI is strictly prohibited because precipitation distributions in semi-arid basins are heavily skewed.
+#### 2.4 Numerical-Safeguard Sensitivity Evaluation
+* In the transformation from non-exceedance probability to normal score, mapping endpoint probabilities ($p \le 0 \mapsto -5.0$, $p \ge 1 \mapsto +5.0$) is an operational safeguard, not an exact tail representation.
+* The robust log-CDF and log-survival transformation evaluates extreme tails without underflow.
+* **Sensitivity Finding:** Drought classifications were identical between the operational cap and robust log-transformation across all standard thresholds ($-1.0, -1.5, -2.0, -2.5$). Zero classification discrepancies occurred on tested observations.
 
 ---
 
@@ -94,8 +89,6 @@ Historical events are treated as **testable validation hypotheses**, not require
 
 ### 4. Critical Scientific Disambiguation
 
-A vital requirement of Gate 4 is maintaining clear distinction between physical and social phenomena:
-
 ```
 ┌─────────────────────────────────┐
 │     METEOROLOGICAL DROUGHT      │  • Quantified by SPEI-3, SPI-3, rainfall deficit, high evaporative demand.
@@ -116,7 +109,7 @@ A vital requirement of Gate 4 is maintaining clear distinction between physical 
 ```
 
 > [!IMPORTANT]
-> A meteorological drought anomaly ($\text{SPEI-3} \le -2.0$) does not automatically equal famine, nor does the absence of extreme meteorological drought prove food security (e.g. conflict-induced food crises). In AI-DREWS publications and dashboard interfaces, drought indices represent meteorological and hydrological water balance, never substituted as direct proxies for famine.
+> A meteorological drought anomaly ($\text{SPEI-3} \le -2.0$) does not automatically equal famine, nor does the absence of extreme meteorological drought prove food security. In AI-DREWS publications and dashboard interfaces, drought indices represent meteorological and hydrological water balance, never substituted as direct proxies for famine.
 
 ---
 
