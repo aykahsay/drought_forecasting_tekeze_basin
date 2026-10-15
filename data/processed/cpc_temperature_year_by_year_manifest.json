@@ -1,8 +1,8 @@
 {
-  "generated_utc": "2026-10-15T11:20:47.301455+00:00",
+  "generated_utc": "2026-10-15T11:28:57.760978+00:00",
   "total_years_required": 44,
-  "years_verified_complete": 8,
-  "years_pending": 36,
+  "years_verified_complete": 10,
+  "years_pending": 34,
   "inventory": [
     {
       "year": 1981,
@@ -66,27 +66,27 @@
     },
     {
       "year": 1986,
-      "tmax_status": "PENDING",
-      "tmax_size_bytes": null,
-      "tmax_days": null,
-      "tmax_sha256": null,
-      "tmin_status": "PENDING",
-      "tmin_size_bytes": null,
-      "tmin_days": null,
-      "tmin_sha256": null,
-      "year_complete": false
+      "tmax_status": "VERIFIED",
+      "tmax_size_bytes": 86563451,
+      "tmax_days": 365,
+      "tmax_sha256": "ff6e1ca6cdea017b65e39590ea96ca90d53cf07b41bdaff6e68561987fdfeb36",
+      "tmin_status": "VERIFIED",
+      "tmin_size_bytes": 87897917,
+      "tmin_days": 365,
+      "tmin_sha256": "e65d6be1537821c85e92dfac76aa4288d9a9555dbe886bb9caddea330d8d2b23",
+      "year_complete": true
     },
     {
       "year": 1987,
-      "tmax_status": "PENDING",
-      "tmax_size_bytes": null,
-      "tmax_days": null,
-      "tmax_sha256": null,
-      "tmin_status": "PENDING",
-      "tmin_size_bytes": null,
-      "tmin_days": null,
-      "tmin_sha256": null,
-      "year_complete": false
+      "tmax_status": "VERIFIED",
+      "tmax_size_bytes": 87655807,
+      "tmax_days": 365,
+      "tmax_sha256": "0fdb08565079015b1508037832b29662cc49627a09bc2697878f42d14f057152",
+      "tmin_status": "VERIFIED",
+      "tmin_size_bytes": 89063092,
+      "tmin_days": 365,
+      "tmin_sha256": "314780497be41cd79ea4c5df4b12a7456ffcd45e0e9c5c717777518e91d0115a",
+      "year_complete": true
     },
     {
       "year": 1988,

@@ -336,12 +336,22 @@ def evaluate_leakage_safe_forecasting(df: pd.DataFrame) -> Dict[str, Any]:
     n_test = len(y_test)
     print(f"  Holdout evaluation window: 2016-01 to 2023-12 ({n_test} calendar months).")
 
-    # Define seasonal subsets in the 96-month test set
-    test_seasons = {
-        "all_months": test_mask,
-        "kiremt_monsoon": test_mask & df["month"].isin([7, 8, 9]),
-        "belg_rains": test_mask & df["month"].isin([3, 4, 5]),
-        "bega_dry": test_mask & df["month"].isin([10, 11, 12, 1])
+    # Complete seasonal partitioning covering 100% of the 96 holdout months (no omissions)
+    # Scheme 1: Standard 4-part + Transitions (JAS, MAM, ONDJ, Feb, Jun)
+    # Scheme 2: Climatologically Grounded (Abregelle 44-yr CHIRPS: JJAS=83% rain, MAM=12%, ONDJF=5%)
+    seasonal_schemes = {
+        "scheme_standard_4part": {
+            "kiremt_monsoon_jas": test_mask & df["month"].isin([7, 8, 9]),
+            "belg_rains_mam": test_mask & df["month"].isin([3, 4, 5]),
+            "bega_dry_ondj": test_mask & df["month"].isin([10, 11, 12, 1]),
+            "transition_february": test_mask & (df["month"] == 2),
+            "transition_june": test_mask & (df["month"] == 6)
+        },
+        "scheme_climatological_3part": {
+            "kiremt_monsoon_jjas": test_mask & df["month"].isin([6, 7, 8, 9]),
+            "belg_rains_mam": test_mask & df["month"].isin([3, 4, 5]),
+            "bega_dry_ondjf": test_mask & df["month"].isin([10, 11, 12, 1, 2])
+        }
     }
 
     results = {}
@@ -384,6 +394,9 @@ def evaluate_leakage_safe_forecasting(df: pd.DataFrame) -> Dict[str, Any]:
         ridge_ocn = Ridge(alpha=2.0).fit(X_tr_ocn, y_train)
         y_pred_ocn = ridge_ocn.predict(X_te_ocn)
 
+        def calc_mse(y_t, y_p):
+            return float(np.mean((y_t - y_p)**2))
+
         def calc_rmse(y_t, y_p):
             return float(np.sqrt(np.mean((y_t - y_p)**2)))
 
@@ -396,72 +409,129 @@ def evaluate_leakage_safe_forecasting(df: pd.DataFrame) -> Dict[str, Any]:
             r, _ = stats.pearsonr(y_t, y_p)
             return round(float(r), 4)
 
-        rmse_clim = calc_rmse(y_test, y_pred_clim)
-        rmse_pers = calc_rmse(y_test, y_pred_pers)
-        rmse_loc  = calc_rmse(y_test, y_pred_loc)
-        rmse_ocn  = calc_rmse(y_test, y_pred_ocn)
+        mse_clim = calc_mse(y_test, y_pred_clim)
+        mse_pers = calc_mse(y_test, y_pred_pers)
+        mse_loc  = calc_mse(y_test, y_pred_loc)
+        mse_ocn  = calc_mse(y_test, y_pred_ocn)
 
-        # Stationary Block Bootstrap for Uncertainty Quantification
-        np.random.seed(42)
+        rmse_clim = np.sqrt(mse_clim)
+        rmse_pers = np.sqrt(mse_pers)
+        rmse_loc  = np.sqrt(mse_loc)
+        rmse_ocn  = np.sqrt(mse_ocn)
+
+        # Multi-Scheme Bootstrap Sensitivity Analysis (seed=42)
         B = 2000
-        block_len = 6
-        n_blocks = int(np.ceil(n_test / block_len))
-        diff_clim_boot, diff_pers_boot, diff_loc_boot = [], [], []
+        seed = 42
+        bootstrap_schemes = ["6_month_block", "12_month_block", "calendar_year_block_8yr"]
+        bootstrap_results = {}
 
-        for _ in range(B):
-            start_indices = np.random.randint(0, n_test, size=n_blocks)
-            boot_idx = []
-            for s in start_indices:
-                for b in range(block_len):
-                    boot_idx.append((s + b) % n_test)
-            boot_idx = np.array(boot_idx[:n_test])
+        for b_scheme in bootstrap_schemes:
+            np.random.seed(seed)
+            d_clim_boot, d_pers_boot, d_loc_boot = [], [], []
 
-            yt_b = y_test[boot_idx]
-            r_clim_b = calc_rmse(yt_b, y_pred_clim[boot_idx])
-            r_pers_b = calc_rmse(yt_b, y_pred_pers[boot_idx])
-            r_loc_b  = calc_rmse(yt_b, y_pred_loc[boot_idx])
-            r_ocn_b  = calc_rmse(yt_b, y_pred_ocn[boot_idx])
+            for _ in range(B):
+                if b_scheme == "6_month_block":
+                    L = 6
+                    nb = int(np.ceil(n_test / L))
+                    starts = np.random.randint(0, n_test, size=nb)
+                    idx = []
+                    for st in starts:
+                        for b in range(L): idx.append((st + b) % n_test)
+                    boot_idx = np.array(idx[:n_test])
+                elif b_scheme == "12_month_block":
+                    L = 12
+                    nb = int(np.ceil(n_test / L))
+                    starts = np.random.randint(0, n_test, size=nb)
+                    idx = []
+                    for st in starts:
+                        for b in range(L): idx.append((st + b) % n_test)
+                    boot_idx = np.array(idx[:n_test])
+                elif b_scheme == "calendar_year_block_8yr":
+                    years_arr = test_df["year"].values
+                    sampled_years = np.random.choice(np.arange(2016, 2024), size=8, replace=True)
+                    boot_idx = []
+                    for sy in sampled_years:
+                        y_indices = np.where(years_arr == sy)[0]
+                        boot_idx.extend(y_indices)
+                    boot_idx = np.array(boot_idx)
 
-            diff_clim_boot.append(r_ocn_b - r_clim_b)
-            diff_pers_boot.append(r_ocn_b - r_pers_b)
-            diff_loc_boot.append(r_ocn_b - r_loc_b)
+                yt_b = y_test[boot_idx]
+                r_c = calc_rmse(yt_b, y_pred_clim[boot_idx])
+                r_p = calc_rmse(yt_b, y_pred_pers[boot_idx])
+                r_l = calc_rmse(yt_b, y_pred_loc[boot_idx])
+                r_o = calc_rmse(yt_b, y_pred_ocn[boot_idx])
 
-        ci_clim = [round(float(x), 4) for x in np.percentile(diff_clim_boot, [2.5, 97.5])]
-        ci_pers = [round(float(x), 4) for x in np.percentile(diff_pers_boot, [2.5, 97.5])]
-        ci_loc  = [round(float(x), 4) for x in np.percentile(diff_loc_boot, [2.5, 97.5])]
+                d_clim_boot.append(r_o - r_c)
+                d_pers_boot.append(r_o - r_p)
+                d_loc_boot.append(r_o - r_l)
 
-        p_val_clim = round(float(np.mean(np.array(diff_clim_boot) >= 0.0)), 4)
-        p_val_pers = round(float(np.mean(np.array(diff_pers_boot) >= 0.0)), 4)
-        p_val_loc  = round(float(np.mean(np.array(diff_loc_boot) >= 0.0)), 4)
+            def get_ci_p(boot_arr, point_diff):
+                ci = [round(float(x), 4) for x in np.percentile(boot_arr, [2.5, 97.5])]
+                p_1sided = round(float(np.mean(np.array(boot_arr) >= 0.0) if point_diff < 0 else np.mean(np.array(boot_arr) <= 0.0)), 4)
+                p_2sided = round(float(min(1.0, 2.0 * min(np.mean(np.array(boot_arr) >= 0.0), np.mean(np.array(boot_arr) <= 0.0)))), 4)
+                return ci, p_1sided, p_2sided
 
-        # Seasonal disaggregation
-        seasonal_breakdown = {}
-        for s_key, s_mask in test_seasons.items():
-            s_idx = df.index[s_mask]
-            yt_s = df.loc[s_idx, target_col].values
-            X_s_loc, X_s_ocn = build_features(s_idx, h)
-            yp_clim_s = np.full(len(yt_s), 0.0)
-            yp_pers_s = df.loc[s_idx - h, target_col].values
-            yp_loc_s  = ridge_loc.predict(X_s_loc)
-            yp_ocn_s  = ridge_ocn.predict(X_s_ocn)
+            ci_c, p1_c, p2_c = get_ci_p(d_clim_boot, rmse_ocn - rmse_clim)
+            ci_l, p1_l, p2_l = get_ci_p(d_loc_boot, rmse_ocn - rmse_loc)
+            ci_p, p1_p, p2_p = get_ci_p(d_pers_boot, rmse_ocn - rmse_pers)
 
-            s_rmse_clim = calc_rmse(yt_s, yp_clim_s)
-            s_rmse_pers = calc_rmse(yt_s, yp_pers_s)
-            s_rmse_loc  = calc_rmse(yt_s, yp_loc_s)
-            s_rmse_ocn  = calc_rmse(yt_s, yp_ocn_s)
-
-            seasonal_breakdown[s_key] = {
-                "n_months": len(yt_s),
-                "climatology_rmse": round(s_rmse_clim, 4),
-                "persistence_rmse": round(s_rmse_pers, 4),
-                "persistence_r": calc_r(yt_s, yp_pers_s),
-                "local_ar_rmse": round(s_rmse_loc, 4),
-                "local_ar_r": calc_r(yt_s, yp_loc_s),
-                "multi_ocean_rmse": round(s_rmse_ocn, 4),
-                "multi_ocean_r": calc_r(yt_s, yp_ocn_s),
-                "ocean_vs_local_pct": round((1.0 - s_rmse_ocn / s_rmse_loc) * 100.0, 2),
-                "ocean_vs_clim_pct": round((1.0 - s_rmse_ocn / s_rmse_clim) * 100.0, 2)
+            bootstrap_results[b_scheme] = {
+                "dRMSE_vs_climatology": {"point": round(rmse_ocn - rmse_clim, 4), "ci95": ci_c, "p_onesided": p1_c, "p_twosided": p2_c},
+                "dRMSE_vs_local_ar":    {"point": round(rmse_ocn - rmse_loc, 4),  "ci95": ci_l, "p_onesided": p1_l, "p_twosided": p2_l},
+                "dRMSE_vs_persistence": {"point": round(rmse_ocn - rmse_pers, 4), "ci95": ci_p, "p_onesided": p1_p, "p_twosided": p2_p}
             }
+
+        # Complete Seasonal Decomposition & Exact Mean Squared Error Additive Partition
+        seasonal_decompositions = {}
+        for s_scheme_name, partitions in seasonal_schemes.items():
+            decomp = {}
+            sum_weighted_dmse = 0.0
+
+            for part_key, part_mask in partitions.items():
+                s_idx = df.index[part_mask]
+                yt_s = df.loc[s_idx, target_col].values
+                X_s_loc, X_s_ocn = build_features(s_idx, h)
+
+                yp_clim_s = np.full(len(yt_s), 0.0)
+                yp_pers_s = df.loc[s_idx - h, target_col].values
+                yp_loc_s  = ridge_loc.predict(X_s_loc)
+                yp_ocn_s  = ridge_ocn.predict(X_s_ocn)
+
+                s_mse_clim = calc_mse(yt_s, yp_clim_s)
+                s_mse_pers = calc_mse(yt_s, yp_pers_s)
+                s_mse_loc  = calc_mse(yt_s, yp_loc_s)
+                s_mse_ocn  = calc_mse(yt_s, yp_ocn_s)
+
+                weight = len(yt_s) / n_test
+                dmse_clim = s_mse_ocn - s_mse_clim
+                weighted_dmse_clim = weight * dmse_clim
+                sum_weighted_dmse += weighted_dmse_clim
+
+                decomp[part_key] = {
+                    "n_months": len(yt_s),
+                    "weight_in_test_set": round(weight, 4),
+                    "climatology_rmse": round(np.sqrt(s_mse_clim), 4),
+                    "climatology_mse": round(s_mse_clim, 4),
+                    "persistence_rmse": round(np.sqrt(s_mse_pers), 4),
+                    "persistence_r": calc_r(yt_s, yp_pers_s),
+                    "local_ar_rmse": round(np.sqrt(s_mse_loc), 4),
+                    "local_ar_mse": round(s_mse_loc, 4),
+                    "local_ar_r": calc_r(yt_s, yp_loc_s),
+                    "multi_ocean_rmse": round(np.sqrt(s_mse_ocn), 4),
+                    "multi_ocean_mse": round(s_mse_ocn, 4),
+                    "multi_ocean_r": calc_r(yt_s, yp_ocn_s),
+                    "delta_mse_vs_clim": round(dmse_clim, 4),
+                    "weighted_delta_mse_contribution": round(weighted_dmse_clim, 4),
+                    "error_reduction_vs_local_pct": round((1.0 - np.sqrt(s_mse_ocn) / np.sqrt(s_mse_loc)) * 100.0, 2),
+                    "error_reduction_vs_clim_pct": round((1.0 - np.sqrt(s_mse_ocn) / np.sqrt(s_mse_clim)) * 100.0, 2)
+                }
+
+            decomp["additive_check"] = {
+                "sum_weighted_delta_mse": round(sum_weighted_dmse, 6),
+                "total_pooled_delta_mse": round(mse_ocn - mse_clim, 6),
+                "identity_satisfied": abs(sum_weighted_dmse - (mse_ocn - mse_clim)) < 1e-5
+            }
+            seasonal_decompositions[s_scheme_name] = decomp
 
         skill_gain_vs_clim = round((1.0 - rmse_ocn / rmse_clim) * 100.0, 2)
         skill_gain_vs_pers = round((1.0 - rmse_ocn / rmse_pers) * 100.0, 2)
@@ -473,40 +543,29 @@ def evaluate_leakage_safe_forecasting(df: pd.DataFrame) -> Dict[str, Any]:
             "evaluation_window": "2016-01 to 2023-12",
             "test_months_evaluated": n_test,
             "models": {
-                "climatology_baseline": {"rmse": round(rmse_clim, 4), "mae": round(calc_mae(y_test, y_pred_clim), 4), "pearson_r": None},
-                "persistence_baseline": {"rmse": round(rmse_pers, 4), "mae": round(calc_mae(y_test, y_pred_pers), 4), "pearson_r": calc_r(y_test, y_pred_pers)},
-                "local_climate_only":   {"rmse": round(rmse_loc, 4), "mae": round(calc_mae(y_test, y_pred_loc), 4), "pearson_r": calc_r(y_test, y_pred_loc)},
-                "multi_ocean_informed": {"rmse": round(rmse_ocn, 4), "mae": round(calc_mae(y_test, y_pred_ocn), 4), "pearson_r": calc_r(y_test, y_pred_ocn)}
+                "climatology_baseline": {"rmse": round(rmse_clim, 4), "mse": round(mse_clim, 4), "mae": round(calc_mae(y_test, y_pred_clim), 4), "pearson_r": None},
+                "persistence_baseline": {"rmse": round(rmse_pers, 4), "mse": round(mse_pers, 4), "mae": round(calc_mae(y_test, y_pred_pers), 4), "pearson_r": calc_r(y_test, y_pred_pers)},
+                "local_climate_only":   {"rmse": round(rmse_loc, 4),  "mse": round(mse_loc, 4),  "mae": round(calc_mae(y_test, y_pred_loc), 4), "pearson_r": calc_r(y_test, y_pred_loc)},
+                "multi_ocean_informed": {"rmse": round(rmse_ocn, 4),  "mse": round(mse_ocn, 4),  "mae": round(calc_mae(y_test, y_pred_ocn), 4), "pearson_r": calc_r(y_test, y_pred_ocn)}
             },
-            "uncertainty_block_bootstrap": {
-                "resamples": B,
-                "block_length_months": block_len,
-                "dRMSE_ocean_minus_clim": round(rmse_ocn - rmse_clim, 4),
-                "ci95_ocean_minus_clim": ci_clim,
-                "p_value_ocean_beats_clim": p_val_clim,
-                "dRMSE_ocean_minus_pers": round(rmse_ocn - rmse_pers, 4),
-                "ci95_ocean_minus_pers": ci_pers,
-                "p_value_ocean_beats_pers": p_val_pers,
-                "dRMSE_ocean_minus_local": round(rmse_ocn - rmse_loc, 4),
-                "ci95_ocean_minus_local": ci_loc,
-                "p_value_ocean_beats_local": p_val_loc
-            },
+            "bootstrap_sensitivity_checks": bootstrap_results,
             "skill_comparisons_pct": {
                 "error_reduction_vs_climatology_pct": skill_gain_vs_clim,
                 "error_reduction_vs_persistence_pct": skill_gain_vs_pers,
                 "error_reduction_vs_local_pct": skill_gain_vs_loc
             },
-            "seasonal_breakdown": seasonal_breakdown
+            "seasonal_decompositions": seasonal_decompositions
         }
 
         print(f"\n[LEAD HORIZON: {h} MONTH(S) AHEAD] (Evaluated Months: {n_test})")
-        print(f"  Climatology Baseline:   RMSE = {rmse_clim:.4f}")
+        print(f"  Climatology Baseline:   RMSE = {rmse_clim:.4f}, MSE = {mse_clim:.4f}")
         print(f"  Persistence Baseline:   RMSE = {rmse_pers:.4f}, r = {calc_r(y_test, y_pred_pers)}")
         print(f"  Local Climate Model:    RMSE = {rmse_loc:.4f}, r = {calc_r(y_test, y_pred_loc)}")
         print(f"  Multi-Ocean Model:      RMSE = {rmse_ocn:.4f}, r = {calc_r(y_test, y_pred_ocn)}")
-        print(f"  Ocean vs Climatology:   dRMSE = {rmse_ocn - rmse_clim:+.4f} (95% CI: [{ci_clim[0]:+.4f}, {ci_clim[1]:+.4f}], p={p_val_clim:.4f})")
-        print(f"  Ocean vs Persistence:   dRMSE = {rmse_ocn - rmse_pers:+.4f} (95% CI: [{ci_pers[0]:+.4f}, {ci_pers[1]:+.4f}], p={p_val_pers:.4f})")
-        print(f"  Ocean vs Local AR:      dRMSE = {rmse_ocn - rmse_loc:+.4f} (95% CI: [{ci_loc[0]:+.4f}, {ci_loc[1]:+.4f}], p={p_val_loc:.4f})")
+        print(f"  Ocean vs Climatology:   dRMSE = {rmse_ocn - rmse_clim:+.4f} (12m Block 95% CI: [{bootstrap_results['12_month_block']['dRMSE_vs_climatology']['ci95'][0]:+.4f}, {bootstrap_results['12_month_block']['dRMSE_vs_climatology']['ci95'][1]:+.4f}], p_2sided={bootstrap_results['12_month_block']['dRMSE_vs_climatology']['p_twosided']:.4f})")
+        print(f"  Ocean vs Local AR:      dRMSE = {rmse_ocn - rmse_loc:+.4f} (12m Block 95% CI: [{bootstrap_results['12_month_block']['dRMSE_vs_local_ar']['ci95'][0]:+.4f}, {bootstrap_results['12_month_block']['dRMSE_vs_local_ar']['ci95'][1]:+.4f}], p_2sided={bootstrap_results['12_month_block']['dRMSE_vs_local_ar']['p_twosided']:.4f})")
+        print(f"  Ocean vs Persistence:   dRMSE = {rmse_ocn - rmse_pers:+.4f} (12m Block 95% CI: [{bootstrap_results['12_month_block']['dRMSE_vs_persistence']['ci95'][0]:+.4f}, {bootstrap_results['12_month_block']['dRMSE_vs_persistence']['ci95'][1]:+.4f}], p_2sided={bootstrap_results['12_month_block']['dRMSE_vs_persistence']['p_twosided']:.4f})")
+
 
     # Save to JSON
     json_path = PROCESSED_DIR / "forecast_skill_comparison_ocean_vs_baselines.json"
