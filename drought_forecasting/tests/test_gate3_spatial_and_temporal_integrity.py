@@ -272,3 +272,121 @@ def test_gate3_separate_source_auditing():
         if entry["rainfall_status"] != "VALID_OBSERVATION" or entry["temp_status"] != "VALID_OBSERVATION":
             assert entry["combined_status"] != "CERTIFIED"
             assert entry["combined_status"] == "RECONSTRUCTION_PAUSED"
+
+
+def test_gate3_catchment_topology_and_area_independent_audit():
+    """
+    SPATIAL INTEGRITY AUDIT (REV7.1):
+    Independently verify HydroBASINS Level 5 Africa source polygons (1050648030, 1050692800, 1050692900):
+      1. Resolves all 3 target IDs in HydroBASINS Africa v1c standard dataset.
+      2. Verifies pairwise disjoint interiors (zero overlap area; shared boundaries are lines only).
+      3. Verifies union topology forms a single valid polygon with no holes or disconnected components.
+      4. Separately reports:
+         - Source SUB_AREA attribute sum: 67,135.40 km²
+         - Independently calculated spherical geodesic union area: 67,135.57 km²
+         - Discrepancy: 0.1682 km² (0.0003%).
+    """
+    import os
+    import shapefile
+    from shapely.ops import unary_union
+
+    shp_path = Path("data/spatial/extracted/hybas_af_lev05/hybas_af_lev05_v1c.shp")
+    assert shp_path.exists(), f"HydroBASINS Level 5 shapefile missing at {shp_path}"
+
+    r = shapefile.Reader(str(shp_path))
+    fields = [f[0] for f in r.fields[1:]]
+
+    target_ids = [1050648030, 1050692800, 1050692900]
+    matches = {}
+    for rec, sr in zip(r.records(), r.shapes()):
+        rec_dict = dict(zip(fields, rec))
+        hid = int(rec_dict["HYBAS_ID"])
+        if hid in target_ids:
+            matches[hid] = {
+                "record": rec_dict,
+                "geom": shape(sr.__geo_interface__)
+            }
+
+    assert len(matches) == 3, f"Expected 3 constituent polygons, found {len(matches)}"
+
+    # 1. Drainage and outlet relationships
+    assert matches[1050692800]["record"]["NEXT_DOWN"] == 1050648030  # Upper East -> Lower
+    assert matches[1050692900]["record"]["NEXT_DOWN"] == 1050648030  # Upper South -> Lower
+    # 1050648030 is the basin outlet draining transboundary across Ethiopia-Sudan border
+    assert matches[1050648030]["record"]["NEXT_DOWN"] == 1050538700
+
+    # 2. Pairwise disjoint interiors (zero intersection area)
+    ids = list(matches.keys())
+    for i in range(len(ids)):
+        for j in range(i + 1, len(ids)):
+            id1, id2 = ids[i], ids[j]
+            g1, g2 = matches[id1]["geom"], matches[id2]["geom"]
+            inter = g1.intersection(g2)
+            assert inter.area == pytest.approx(0.0, abs=1e-10), f"Overlapping area between {id1} and {id2}: {inter.area}"
+            assert inter.geom_type in ("LineString", "MultiLineString", "Point", "MultiPoint", "GeometryCollection")
+
+    # 3. Union topology
+    union_poly = unary_union([m["geom"] for m in matches.values()])
+    assert union_poly.is_valid
+    assert union_poly.geom_type == "Polygon", f"Expected single Polygon, got {union_poly.geom_type}"
+    assert len(union_poly.interiors) == 0, "Tekezé union polygon has unexpected interior holes"
+
+    # 4. Area comparison reporting
+    sub_area_sum = sum(float(m["record"]["SUB_AREA"]) for m in matches.values())
+    assert sub_area_sum == pytest.approx(67135.4, rel=1e-4)
+
+    def ring_area(coords, r_km=6371.0088):
+        rad = [(math.radians(lon), math.radians(lat)) for lon, lat in coords]
+        tot = 0.0
+        for i_c in range(len(rad) - 1):
+            tot += (rad[i_c + 1][0] - rad[i_c][0]) * (2.0 + math.sin(rad[i_c][1]) + math.sin(rad[i_c + 1][1]))
+        return abs(tot * (r_km ** 2) / 2.0)
+
+    spherical_union_km2 = ring_area(list(union_poly.exterior.coords))
+    assert spherical_union_km2 == pytest.approx(67135.57, abs=1.0)
+
+    area_diff_km2 = abs(sub_area_sum - spherical_union_km2)
+    assert area_diff_km2 < 1.0, f"Discrepancy between attribute sum and spherical area: {area_diff_km2:.4f} km²"
+
+
+def test_gate3_pre_period_buffer_and_training_sample_counts():
+    """
+    TEMPORAL BOUNDARY AUDIT (REV7.1):
+    Verify that rolling 3-month accumulation starting in January 1981 requires Nov–Dec 1980.
+    Because CHIRPS-2.0 precipitation starts strictly in January 1981 (pre-1981 buffer unavailable),
+    the first two rolling values are strictly NaN (Zero Synthetic Fallback policy).
+    Verifies that the 1981–2005 training calibration sample counts are:
+      - Months 1 & 2 (Jan, Feb): N = 24 observations (1982–2005)
+      - Months 3 to 12 (Mar–Dec): N = 25 observations (1981–2005)
+      - September Forecast Target (Month 9): N = 25 observations (1981–2005).
+    """
+    years = np.repeat(np.arange(1981, 2025), 12)  # 528 months
+    months = np.tile(np.arange(1, 13), 44)
+    total_months = len(years)
+
+    # Synthetic monthly water balance starting Jan 1981 (with non-zero variance)
+    np.random.seed(42)
+    d_monthly = 20.0 + np.sin(np.arange(total_months) * 0.5) * 15.0 + np.random.normal(0, 5, size=total_months)
+
+    res = calculate_rolling_spei(d_monthly, years, months, scale=3, calibration_period=(1981, 2005))
+
+    assert res["status"] == "SUCCESS"
+    spei = res["spei"]
+
+    # First two rolling 3-month values MUST be strictly NaN
+    assert np.isnan(spei[0]), "January 1981 (month 1) must be NaN because Nov-Dec 1980 buffer does not exist"
+    assert np.isnan(spei[1]), "February 1981 (month 2) must be NaN because Dec 1980 buffer does not exist"
+    # March 1981 (month 3) has complete Jan-Feb-Mar 1981 observations
+    assert not np.isnan(spei[2]), "March 1981 (month 3) must be valid"
+
+    # Calibration sample counts in 1981-2005:
+    train_mask = (years >= 1981) & (years <= 2005)
+    # Check sample counts for each calendar month
+    for m in range(1, 13):
+        m_mask = train_mask & (months == m)
+        valid_count = int(np.sum(~np.isnan(spei[m_mask])))
+        if m in (1, 2):
+            assert valid_count == 24, f"Month {m} expected N=24 training observations, got {valid_count}"
+        else:
+            assert valid_count == 25, f"Month {m} expected N=25 training observations, got {valid_count}"
+

@@ -237,6 +237,12 @@ def build_huggingface_operations(root: Path) -> list[CommitOperationAdd]:
             path_in_repo="data/tekeze_monthly_temperature_audit_1981_2024.csv",
             path_or_fileobj=str(audit_csv)
         ))
+    topology_audit = root / "data" / "spatial" / "processed" / "tekeze_catchment_topology_audit.json"
+    if topology_audit.exists():
+        operations.append(CommitOperationAdd(
+            path_in_repo="spatial/tekeze_catchment_topology_audit.json",
+            path_or_fileobj=str(topology_audit)
+        ))
 
     # 11. Environment Requirements
     for req in ["requirements.txt", "requirements-lock.txt"]:

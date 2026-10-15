@@ -1,0 +1,58 @@
+{
+  "hydrobasins_shapefile": "C:\\Users\\User\\Desktop\\AgriMinds\\data\\spatial\\extracted\\hybas_af_lev05\\hybas_af_lev05_v1c.shp",
+  "target_hybas_ids": [
+    1050648030,
+    1050692800,
+    1050692900
+  ],
+  "constituent_units": {
+    "1050648030": {
+      "pfaf_id": 17227,
+      "sub_area_attr_km2": 38225.7,
+      "up_area_attr_km2": 67134.3,
+      "next_down": 1050538700
+    },
+    "1050692800": {
+      "pfaf_id": 17228,
+      "sub_area_attr_km2": 7592.7,
+      "up_area_attr_km2": 7592.7,
+      "next_down": 1050648030
+    },
+    "1050692900": {
+      "pfaf_id": 17229,
+      "sub_area_attr_km2": 21317.0,
+      "up_area_attr_km2": 21317.0,
+      "next_down": 1050648030
+    }
+  },
+  "pairwise_overlaps": {
+    "1050648030_1050692800": {
+      "geom_type": "MultiLineString",
+      "intersection_area_deg2": 0.0,
+      "is_disjoint_interior": true
+    },
+    "1050648030_1050692900": {
+      "geom_type": "MultiLineString",
+      "intersection_area_deg2": 0.0,
+      "is_disjoint_interior": true
+    },
+    "1050692800_1050692900": {
+      "geom_type": "MultiLineString",
+      "intersection_area_deg2": 0.0,
+      "is_disjoint_interior": true
+    }
+  },
+  "union_topology": {
+    "geom_type": "Polygon",
+    "is_valid": true,
+    "num_exterior_rings": 1,
+    "has_interior_holes": false
+  },
+  "area_comparison": {
+    "source_sub_area_sum_km2": 67135.4,
+    "spherical_geodesic_union_area_km2": 67135.57,
+    "spherical_parts_sum_km2": 67135.57,
+    "diff_sub_area_vs_calc_km2": 0.1682,
+    "pct_diff_sub_area_vs_calc": 0.0003
+  }
+}

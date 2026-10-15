@@ -1,11 +1,11 @@
 # AI-DREWS: Master Scientific Workflow & Multi-Gate Validation Plan
 ## End-to-End Execution Blueprint for Tekezé Basin Drought Forecasting (1981–2024)
 
-**Document ID:** `AI-DREWS-MASTER-PLAN-2026-10-REV7`  
+**Document ID:** `AI-DREWS-MASTER-PLAN-2026-10-REV7.1`  
 **Reference Standards:** WMO-No. 100 Climatological Guidelines; Copernicus Climate Data Store (CDS); NOAA PSL THREDDS; R `lmom` v2.9 / `SPEI` v1.8.1; HydroBASINS (WWF / USGS)  
 **Strategy Selection:** **Option A (ECMWF ERA5-Land Reanalysis Primary + NOAA CPC Global Gridded Temperature Independent Comparison)**  
 **Overall Pipeline Status:** **HISTORICAL RECONSTRUCTION PAUSED PENDING COMPLETION OF GATE 1 INGESTION**  
-**Gate Qualification Notice:** Gates 2 and 3 are retained as working specifications with 37 passing software implementation tests, but are strictly qualified as **reported/provisional** pending complete raw archive ingestion, independent reference calculations, and end-to-end provenance audits.  
+**Gate Qualification Notice:** Gates 2 and 3 are retained as working specifications supported by 42 passing cross-validation tests, but are strictly qualified as **reported/provisional** pending complete raw archive ingestion, independent reference calculations, and end-to-end provenance audits.  
 **Spatial Domain:** Ethiopian Tekezé River Catchment ($67,135.4\text{ km}^2$; HydroBASINS Level 5 Union of `1050648030`, `1050692800`, `1050692900`; Lat: $11.6619^\circ\text{N}–14.7958^\circ\text{N}$, Lon: $35.8583^\circ\text{E}–39.7917^\circ\text{E}$)  
 **Target Sequence:** January 1981 – December 2024 (528 consecutive calendar months)
 
@@ -29,30 +29,34 @@ The scientific workflow of the AI-Driven Drought Early Warning System (AI-DREWS)
 ┌────────────────────────────────────────────────────────────────────────┐
 │  GATE 2: Mathematical Implementation Cross-Validation                  │
 │  • Hosking (1990) GLO parameterization (deliberate alternative to log-logistic)│
+│  • Zero-shape Taylor series for scale alpha and location xi (|k| < 0.02)│
 │  • Exact support bounds & float64 deliberate endpoint safeguards       │
-│  • Independent R lmom v2.9 benchmark fixtures (7 test cases, 19 tests) │
+│  • Independent R lmom v2.9 benchmark fixtures (7 test cases, 22 tests) │
+│  • Parametric bootstrap goodness-of-fit refitting (Lilliefors/Stute)   │
 │  • Hargreaves-Samani FAO-56 radiation units & direct benchmark tests   │
 │  • Numerically stable log-CDF, log-survival & robust z-score engine    │
 │  • Thom (1958) shape approximation for Gamma SPI-3 with zero treatment q│
-│  • Status: PASS — reported (37 Tests Passing; External Empirical Audit Pending)│
+│  • Status: PASS — reported (42 Tests Passing; External Empirical Audit Pending)│
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
                                    ▼
 ┌────────────────────────────────────────────────────────────────────────┐
 │  GATE 3: Spatial and Temporal Integrity Auditing                       │
-│  • Reproducible HydroBASINS Lev 5 Catchment Geometry (67,135.4 km²)    │
+│  • Independent HydroBASINS Lev 5 Catchment Topology (hybas_af_lev05_v1c)│
 │  • Constituent IDs: 1050648030, 1050692800, 1050692900 (Humera outlet) │
+│  • Pairwise disjoint interiors (0.00 km² overlap) & single valid polygon│
+│  • Separate reporting: attribute sum 67,135.40 km² vs geodesic 67,135.57 km²│
 │  • Explicit physical intersection area weights: a_i in km²             │
 │  • 95% minimum spatial coverage rule: C_t = sum(v_i a_i) / sum(a_i)    │
-│  • 528-month continuous temporal sequence (1981–2024)                  │
-│  • Status: PASS — reported (Internal Suite Passing; External Topology Audit Pending)│
+│  • 1980 Pre-Period Buffer Reality: N=24 for Jan/Feb, N=25 for Mar–Dec  │
+│  • Status: PASS — reported (Internal Suite Passing; External Audit Pending)│
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
                                    ▼
 ┌────────────────────────────────────────────────────────────────────────┐
 │  GATE 4: Reconstruct & Validate Drought Indices Target                 │
 │  • Hargreaves-Samani (1985; FAO-56) daily extrema PET (MJ/m²/day units)│
-│  • Continuous 528-month sequence ensures Nov/Dec 1990 boundary for Jan 1991│
+│  • Empirical evaluation of daily vs monthly input non-linear covariance│
 │  • 4-Tier Target Schema: spei3_retro, spei3_train, spei3_val, spei3_test│
 │  • Frozen training parameters (1981–2005) applied to validation & test │
 │  • Separate distribution calibration for each of 12 calendar months    │
@@ -62,21 +66,19 @@ The scientific workflow of the AI-Driven Drought Early Warning System (AI-DREWS)
                                    │
                                    ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│  GATE 5: Build & Evaluate Predictive Forecasting Models                │
-│  • Operational forecast task: June 1 issue for Sept-ending SPEI-3      │
-│  • Target valid period: July 1 – Sept 30 (Lead 3 to accumulation end)  │
-│  • Information cutoff strictly May 31 (zero future target data in features)│
-│  • Target standardized strictly on training data (no future leakage)   │
-│  • Chronological split: Train (1981–2005), Val (2006–2014), Test (2015+)│
-│  • Predefined drought threshold (SPEI-3 <= -1.0) & BSS vs climatology  │
-│  • Status: NOT RUN (Explicitly Paused for Gate 4 Certification)        │
+│  GATE 5: Predictive Forecasting Model Formulation                      │
+│  • Fixed seasonal target: September SPEI-3 (July–September Kiremt)     │
+│  • Operational issue cutoff: June 1 00:00 UTC (May 31 information end) │
+│  • Operational persistence baseline: April-ending SPEI-3 (data latency)│
+│  • Frozen 10-year test holdout (2015–2024); strictly zero leakage      │
+│  • Brier Score & CRPS evaluated against climatology & persistence      │
+│  • Status: NOT RUN (Paused for Gates 1 & 4)                            │
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
                                    ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│  GATE 6: Operational AgriMinds Dashboard & Decision Interface          │
-│  • Versioned data interface between pipeline and Streamlit dashboard   │
-│  • Clear separation between observed historical indices & forecasts    │
+│  GATE 6: Operational Dashboard & Delivery Verification                 │
+│  • Decoupled visualization: historical observed vs predictive layer    │
 │  • Transparent risk categories, predictive intervals, failure states   │
 │  • Automated data-refresh audits and monitoring                        │
 │  • Status: NOT RUN (Architected & Specified)                           │
@@ -90,7 +92,7 @@ The scientific workflow of the AI-Driven Drought Early Warning System (AI-DREWS)
 ### 2.1 Strategy: Option A (ERA5-Land Primary + NOAA CPC Independent Comparison)
 
 1. **ECMWF ERA5-Land Reanalysis (Primary Temperature Source):**
-   * **Nature:** Numerical reanalysis produced by ECMWF combining model physics (HTESSEL land surface scheme) with assimilated atmospheric forcing; **not direct in-situ ground station observations**.
+   * **Nature:** High-resolution numerical reanalysis produced by ECMWF combining model physics (HTESSEL land surface model) with atmospheric forcing; **not direct in-situ ground station observations**.
    * **Domain:** Tekezé Bounding Box $[15.0^\circ\text{N}, 35.5^\circ\text{E}, 11.5^\circ\text{N}, 40.0^\circ\text{E}]$.
    * **Resolution:** $0.1^\circ \times 0.1^\circ$ (~9 km native), hourly timesteps, 1981–2024.
    * **Extrema Derivation:** Ingests hourly 2 m temperature (`2m_temperature`) to derive daily $T_{\max, d} = \max_{h} T_{2\text{m}}(d, h)$ and $T_{\min, d} = \min_{h} T_{2\text{m}}(d, h)$.
@@ -99,17 +101,27 @@ The scientific workflow of the AI-Driven Drought Early Warning System (AI-DREWS)
    * **Nature:** Gridded analysis product produced by NOAA CPC based on GTS daily station bulletins interpolated using Shepard's distance-weighting algorithm and CRU orography; **an independent gridded comparison dataset, not automatic in-situ ground truth**.
    * **Resolution:** $0.5^\circ \times 0.5^\circ$ (~55 km), daily $T_{\max}$ and $T_{\min}$ in $^\circ\text{C}$.
    * **Application:** Provides independent validation checks and spatial cross-comparison against ERA5-Land reanalysis.
+   * **Non-Interchangeability:** ERA5-Land and CPC are distinct gridded products with different spatial resolutions, land-surface physics, and daily observation windows. They are maintained as separate feeds to quantify epistemic uncertainty rather than treated as interchangeable drop-in substitutes.
 
-### 2.2 Forensic File Ingestion Audit & Full 528-Month CHIRPS Requirement
+### 2.2 Forensic File Ingestion Audit & Dynamic Inventory Reconciliation
 
 A comprehensive forensic audit of all raw climate data files currently on disk is documented in [`docs/gate1_raw_temperature_ingestion_audit_report.md`](docs/gate1_raw_temperature_ingestion_audit_report.md).
 
-#### Reconciliation of Precipitation Holdings:
-* **Master Study Period:** Full 1981–2024 historical period requires **528 continuous calendar months**, not 300 months (which only spanned 2000–2024).
-* **Local Incomplete Holdings:**
-  * `chirps_ethiopia_2000_2024.nc` contains only 84 months (2018–2024) and lacks a standard CF `time` coordinate variable. It is a legacy exploratory file.
-  * `data/raw/chirps_monthly/*.tif.gz` contains exactly 168 files (14 sampled 12-month years: `1984, 1987, 1991, 1994, 1997, 2000, 2002, 2009, 2011, 2015, 2018, 2020, 2023, 2024`).
-  * Exactly **30 years ($360$ months)** of continuous CHIRPS GeoTIFFs are unacquired and must be downloaded from the CHC archive prior to Gate 4 execution.
+#### Reconciliation of CHIRPS Precipitation Holdings:
+* **Master Study Period:** Full 1981–2024 historical period requires **528 continuous calendar months** (44 years $\times$ 12 months).
+* **Inventory Reconciliation:**
+  * Initially present: Exactly **168 monthly GeoTIFF files** (`data/raw/chirps_monthly/*.tif.gz`), representing 14 complete 12-month calendar years (`1984, 1987, 1991, 1994, 1997, 2000, 2002, 2009, 2011, 2015, 2018, 2020, 2023, 2024`).
+  * Initial missing count: $528 - 168 = \mathbf{360\text{ missing months}}$.
+  * Test download: 1 month (`chirps-v2.0.1981.01.tif.gz`) was downloaded and SHA-256 verified by `scripts/download_chirps_monthly_missing_1981_2024.py`, making 169 files currently present on disk.
+  * Current missing count: $528 - 169 = \mathbf{359\text{ GeoTIFFs}}$ remaining to be downloaded.
+  * **Dynamic Inventory Policy:** File counts must be recomputed dynamically from a month-by-month file inventory rather than hard-coded.
+* **Forensic Ingestion Validation Rules:**
+  Each downloaded file must pass five strict integrity checks before counting toward Gate 1:
+  1. **Temporal Match:** Expected year and month must match the internal raster metadata and filename.
+  2. **Archive Integrity:** Gzip archive must decompress without CRC errors.
+  3. **Spatial Extent:** Raster bounding box must completely enclose the Tekezé catchment ($11.66^\circ\text{N}–14.80^\circ\text{N}, 35.86^\circ\text{E}–39.79^\circ\text{E}$).
+  4. **Value Validity:** No uniform fields, all values finite floats with non-zero spatial variance within basin mask.
+  5. **Deduplication:** Zero duplicate calendar months permitted.
 
 ### 2.3 Timezone & Daily Extrema Grouping Boundaries
 
@@ -119,8 +131,8 @@ A comprehensive forensic audit of all raw climate data files currently on disk i
    * Because diurnal minimum occurs near sunrise (~$06:00\text{ EAT} = 03:00\text{ UTC}$) and maximum occurs in early afternoon (~$14:00\text{ EAT} = 11:00\text{ UTC}$), the UTC day captures the entire diurnal solar heating cycle without splitting across night.
    * Local civil day ($00:00–23:00\text{ EAT}$, i.e. $21:00\text{ UTC}(d-1)$ to $20:00\text{ UTC}(d)$) is supported as an explicit sensitivity check.
 2. **NOAA CPC Observation Window:**
-   * NOAA CPC Global Daily Temperature compiles GTS reports over a 24-hour observation cycle (typically $12:00\text{ UTC} - 12:00\text{ UTC}$).
-   * CPC and ERA5-Land daily extrema represent slightly shifted 24-hour observation windows and cannot be assumed to be identical to the second, though their monthly and seasonal averages converge.
+   * NOAA CPC Global Daily Temperature compiles GTS reports over national meteorological observation windows (nominally $12:00\text{ UTC} - 12:00\text{ UTC}$, varying by reporting country).
+   * CPC and ERA5-Land daily extrema represent distinct 24-hour observation windows and cannot be assumed to be identical to the second, though their monthly and seasonal averages converge.
 
 ### 2.4 Gate 1 Status & Pass Condition
 * **Current Status:** `PARTIAL`
@@ -146,58 +158,58 @@ A comprehensive forensic audit of all raw climate data files currently on disk i
      $$k = -t_3$$
      $$\alpha = \frac{l_2 \sin(\pi k)}{\pi k} \quad (\text{for } k \ne 0, \text{ with limit } \alpha = l_2 \text{ as } k \to 0)$$
      $$\xi = l_1 - \frac{\alpha}{k}\left(1 - \frac{\pi k}{\sin(\pi k)}\right)$$
+   * **Zero-Shape Limit & Numerical Stability Expansion ($|k| < 0.02$):**
+     Near $k=0$, direct evaluation of $(1 - \frac{\pi k}{\sin(\pi k)}) / k$ suffers catastrophic cancellation in double precision floating point. To ensure machine-precision numerical stability down to $k=0$, high-order Taylor series expansions are evaluated whenever $|k| < 0.02$:
+     $$\alpha = l_2 \left(1 - \frac{\pi^2 k^2}{6} + \frac{\pi^4 k^4}{120} - \frac{\pi^6 k^6}{5040} + \frac{\pi^8 k^8}{362880}\right)$$
+     $$\xi = l_1 + \alpha k \left(\frac{\pi^2}{6} + \frac{7\pi^4 k^2}{360} + \frac{31\pi^6 k^4}{15120} + \frac{127\pi^8 k^6}{604800}\right)$$
+     This guarantees continuous differentiability and $< 10^{-15}$ error across the transition to $k=0$.
    * **Support Condition:** $1 - \frac{k(x - \xi)}{\alpha} > 0$.
      * If $k > 0$: $x < \xi + \alpha/k$ (upper bounded; $F(x) = 1.0$ for $x \ge \xi + \alpha/k$).
      * If $k < 0$: $x > \xi + \alpha/k$ (lower bounded; $F(x) = 0.0$ for $x \le \xi + \alpha/k$).
      * If $k = 0$: Support on $(-\infty, +\infty)$, evaluated via the exact logistic limit:
        $$F(x) = \frac{1}{1 + e^{-(x - \xi)/\alpha}}, \quad x(F) = \xi - \alpha \ln\left(\frac{1 - F}{F}\right)$$
-   * **Cumulative Distribution Function (CDF):**
-     $$F(x) = \frac{1}{1 + \left(1 - \frac{k(x - \xi)}{\alpha}\right)^{1/k}} \quad (\text{for } k \ne 0 \text{ within support})$$
+   * **Quantile Function (quaglo):**
+     $$x(F) = \xi + \frac{\alpha}{k}\left(1 - \left(\frac{1 - F}{F}\right)^k\right) \quad (\text{for } k \ne 0)$$
+     For small $|k \ln((1-F)/F)| < 0.02$, series expansion of $(1 - u^k)/k$ guarantees numerical stability:
+     $$x(F) = \xi - \alpha \ln u \left(1 + \frac{k \ln u}{2} + \frac{(k \ln u)^2}{6} + \frac{(k \ln u)^3}{24} + \frac{(k \ln u)^4}{120}\right)$$
 
 3. **Gamma SPI-3 Formulation (Thom Shape Approximation):**
    * For cumulative 3-month precipitation $x \ge 0$:
    * Let $q = \frac{n_{\text{zero}}}{n_{\text{total}}}$ be the empirical probability of zero precipitation.
    * On non-zero observations ($x > 0$), calculate $A = \ln(\bar{x}) - \frac{1}{m}\sum_{i=1}^m \ln(x_i)$.
-   * Shape estimate using **Thom's (1958) approximation for Gamma shape estimation**:
-     $$\hat{\alpha}_g = \frac{1 + \sqrt{1 + 4A/3}}{4A}, \quad \hat{\beta}_g = \frac{\bar{x}}{\hat{\alpha}_g}$$
-   * Cumulative probability incorporating zeros:
-     $$H(x) = q + (1 - q) G(x; \hat{\alpha}_g, \hat{\beta}_g)$$
+   * Thom (1958) MLE shape $\hat{\beta} = \frac{1 + \sqrt{1 + 4A/3}}{4A}$, scale $\hat{\alpha} = \frac{\bar{x}}{\hat{\beta}}$.
+   * Non-exceedance probability: $H(x) = q + (1 - q) G(x; \hat{\alpha}, \hat{\beta})$.
 
-4. **Standard Normal Transformation:**
-   * $Z = \Phi^{-1}(H(x))$ via rational approximation / `scipy.special.ndtri`.
-   * Unclipped mathematical precision preserved throughout scientific pipelines; clipping to $[-3.5, 3.5]$ is confined exclusively to visual display contracts.
+### 3.2 Goodness-of-Fit Qualification: Parametric Bootstrap vs Asymptotic KS
 
-### 3.2 Mathematical Evidence & Gate 2 Status
-
-1. **Numerical Consistency:** Verified that CDF and quantile invert each other across all supports ($|F(x(F)) - F| < 10^{-10}$).
-2. **Parameter Recovery:** Verified that unbiased sample L-moments recover synthetic parameters $(\xi, \alpha, k)$ within documented Monte Carlo error.
-3. **Independent Reference Agreement:** Python implementation matches values generated by R version 4.3.2, package `lmom` v2.9 functions (`pelglo`, `cdfglo`, `quaglo`) across 7 test cases in [`fixtures/r_spei_lmom_reference_benchmark.json`](drought_forecasting/tests/fixtures/r_spei_lmom_reference_benchmark.json) with $|F_{\text{py}} - F_{\text{ref}}| < 10^{-5}$.
-4. **Enhanced Mathematical Verifications (19 Automated Tests in [`test_gate2_mathematical_benchmarks.py`](drought_forecasting/tests/test_gate2_mathematical_benchmarks.py)):**
-   * `test_glo_support_boundaries_epsilon`: Verifies behavior immediately inside and outside finite support bounds within IEEE 754 float64 precision.
-   * `test_glo_shape_approaching_zero`: Verifies continuity of GLO CDF as shape $k$ approaches zero from both positive ($k \to 0^+$) and negative ($k \to 0^-$) sides.
-   * `test_glo_monotonicity_and_symmetric_fitting`: Verifies strict monotonicity ($\frac{dF}{dx} > 0$) within support and stable, finite parameter estimation on nearly symmetric samples.
-   * `test_hargreaves_radiation_units_fao56_benchmark`: Confirms dimensional consistency of $R_{a,\text{MJ}}$ ($0.0023 \times 0.408$) and daily summation.
-   * `test_hargreaves_published_reference_direct_calculation`: Independently reproduces published reference calculations (FAO-56 Table 2.6 & Example 14: Lat 45°N $ET_0 = 5.03\text{ mm/day}$; Lat 13°N Tekeze analog $ET_0 = 5.28\text{ mm/day}$) using user-supplied $R_a$ directly, completely bypassing internal solar radiation helpers.
-   * `test_glo_log_cdf_and_robust_z_score`: Verifies numerically stable log-CDF and log-survival functions with exact normal inversion via `scipy.special.ndtri_exp` across extreme lower tails ($z < -5.0$ to $z \approx -10.8$).
-   * `test_compare_safeguard_cap_vs_robust_log_transformation_synthetic`: Compares operational $\pm 5.0$ cap against uncapped log-CDF transformation across 50-year synthetic series with outliers, verifying 100% categorical invariance across all drought thresholds ($\le -1.0, -1.5, -2.0, -2.5$).
-   * `test_summarize_safeguards_by_month_and_split`: Verifies rigorous tallying of endpoint safeguards across 12 calendar months and 3 dataset splits.
-   * `test_rolling_spei_diagnostics_and_safeguards`: Verifies goodness-of-fit diagnostics (KS test statistic, asymptotic p-value, support boundary audits) across all 12 calendar months.
-* **Current Status:** `PASS — reported` (All 19 Gate 2 automated tests passing; marked as "reported" pending independent external audit of R session generation scripts and test logs).
+* **Statistical Qualification:**
+  Ordinary asymptotic Kolmogorov-Smirnov test p-values assume a known, pre-specified reference distribution. When distribution parameters $(\xi, \alpha, k)$ are estimated from the same sample (especially on small monthly calibration samples $N=24–25$), ordinary asymptotic p-values are uncalibrated (the classical Lilliefors / Stute complication).
+* **Calibrated Parametric Bootstrap Protocol:**
+  1. The Kolmogorov-Smirnov statistic $D_{\text{obs}} = \sup_x |F_n(x) - F_{\text{GLO}}(x; \hat{\xi}, \hat{\alpha}, \hat{k})|$ is retained as a descriptive measure of distance between empirical and theoretical distributions.
+  2. A parametric bootstrap procedure ($B=200$ replicates) is executed: synthetic samples of size $N$ are drawn from $\text{GLO}(\hat{\xi}, \hat{\alpha}, \hat{k})$, parameters are refitted on each replicate using sample L-moments, and bootstrap test statistics $D^{*(b)}$ are computed against each replicate's own refitted distribution.
+  3. The calibrated bootstrap p-value is computed as:
+     $$p_{\text{boot}} = \frac{1}{B} \sum_{b=1}^B \mathbb{I}(D^{*(b)} \ge D_{\text{obs}})$$
+  4. Q-Q diagnostics ($R^2$ correlation and maximum absolute quantile deviation) are evaluated and reported.
 
 ---
 
 ## 4. Gate 3 — Spatial and Temporal Integrity Auditing
 
-### 4.1 Reproducible Catchment Geometry & Spatial Weighting Formula
+### 4.1 Independent Catchment Topology & Area Verification
 
-* **Boundary Dataset:** HydroBASINS African dataset version 1c (`hybas_af_lev05_v1c.shp`), Pfafstetter Level 5.
-* **Constituent Sub-Basins (Exact Polygon IDs):**
-  1. `HYBAS_ID: 1050648030` (Middle and Lower Tekezé, including the catchment outlet downstream of Humera at the Sudanese border, $\sim 14.28^\circ\text{N}, 36.55^\circ\text{E}$; `SUB_AREA` = $46,396.1\text{ km}^2$).
-  2. `HYBAS_ID: 1050692800` (Eastern Upper Tekezé headwaters in Tigray / Amhara; `SUB_AREA` = $8,527.2\text{ km}^2$).
-  3. `HYBAS_ID: 1050692900` (Southern Upper Tekezé headwaters in Wag Himra, Amhara; `SUB_AREA` = $12,212.1\text{ km}^2$).
-* **Topological Operation:** Unary union:
-  $$\mathcal{P}_{\text{Tekeze}} = \text{unary\_union}\left(\left[\mathcal{P}_{1050648030}, \mathcal{P}_{1050692800}, \mathcal{P}_{1050692900}\right]\right)$$
-* **Catchment Area:** Total HydroBASINS attribute sum = $67,135.4\text{ km}^2$. Independent spherical excess area calculation in EPSG:4326 matches $67,135.4\text{ km}^2$ ($< 0.01\%$ difference).
+* **Constituent HydroBASINS Units (Africa Level 5 standard product `hybas_af_lev05_v1c.shp`):**
+  1. `HYBAS_ID: 1050648030` (PFAF 17227; Middle & Lower Tekezé, `SUB_AREA` = $38,225.7\text{ km}^2$; basin outlet draining transboundary across Ethiopia-Sudan border).
+  2. `HYBAS_ID: 1050692800` (PFAF 17228; Eastern Upper Tekezé headwaters, `SUB_AREA` = $7,592.7\text{ km}^2$; drains to `1050648030`).
+  3. `HYBAS_ID: 1050692900` (PFAF 17229; Southern Upper Tekezé headwaters, `SUB_AREA` = $21,317.0\text{ km}^2$; drains to `1050648030`).
+
+* **Topological Topology Audit:**
+  * **Pairwise Disjoint Interiors:** All 3 constituent polygons share common boundaries along 1D line segments (MultiLineString contact), with intersection area $= \mathbf{0.00\text{ km}^2}$ (zero overlaps, zero gaps).
+  * **Union Topology:** The topological union forms a single valid `Polygon` (not a disconnected MultiPolygon) with 1 exterior ring and **zero interior holes**.
+  * **Area Reporting:**
+    * Source `SUB_AREA` attribute sum: $\mathbf{67,135.40\text{ km}^2}$.
+    * Independently calculated spherical geodesic union area (WGS84 authalic sphere, $R = 6,371.0088\text{ km}$): $\mathbf{67,135.57\text{ km}^2}$.
+    * Absolute discrepancy: $\mathbf{0.1682\text{ km}^2}$ ($0.0003\%$).
+    * Both values and their difference are maintained and reported as separate quantities.
 
 * **Spatial Aggregation Formulation (Physical Intersection Area):**
   Let $a_i$ be the actual physical intersection area between grid cell $i$ and the catchment boundary (in $\text{km}^2$).
@@ -213,38 +225,35 @@ A comprehensive forensic audit of all raw climate data files currently on disk i
   If $C_t \ge 0.95$, calculate the basin average exclusively over valid cells:
   $$\bar{x}_t = \frac{\sum_i v_{i,t} a_i x_{i,t}}{\sum_i v_{i,t} a_i}$$
 
-* **Disambiguation of Area Scaling:**
-  * When using coordinate-space polygon intersection fractions $f_{i,j} = \frac{\text{area}(\mathcal{C}_{i,j} \cap \mathcal{P})}{\text{area}(\mathcal{C}_{i,j})}$, multiply by the cell-area factor $\cos \phi_i$ to account for meridional convergence on a spherical Earth: $a_{i,j} \propto f_{i,j} \cos \phi_i$.
-  * When using true geodesic intersection areas $a_i$ directly (in $\text{km}^2$), omit the $\cos \phi_i$ multiplier to avoid double-counting latitude adjustments.
-
-### 4.2 Quality-Control Safeguards
-* **NoData Exclusion:** Negative sentinels (CHIRPS $-9999.0$) are strictly excluded from both numerator and denominator.
-* **528-Month Continuity:** January 1981 through December 2024 (528 consecutive months).
-* **NaN Propagation:** Missing values strictly propagate through rolling 3-month accumulations; zero silent forward-filling or interpolation.
-* **Current Status:** `PASS — reported` (All 7 spatial/temporal integrity tests passing in [`test_gate3_spatial_and_temporal_integrity.py`](drought_forecasting/tests/test_gate3_spatial_and_temporal_integrity.py); marked as "reported" pending external boundary topology verification).
-
 ---
 
 ## 5. Gate 4 — Reconstruct and Validate Drought Indices Target
 
-### 5.1 Accumulation Window vs. Month-Specific Calibration
+### 5.1 1980 Pre-Period Buffer Reality & Month-Specific Calibration Sample Counts
 
-* **Target Metric:** Standardized Precipitation-Evapotranspiration Index at 3-month scale ($\text{SPEI-3}$).
-* **Rolling Accumulation Window:**
-  $$D_{3,t} = \sum_{k=0}^2 (P_{t-k} - \text{PET}_{t-k})$$
 * **Boundary Condition Requirement:**
-  Calculating the rolling 3-month water balance for January 1991 ($t = \text{1991-01}$) requires climate observations from **November 1990 and December 1990**, even though Nov/Dec 1990 fall outside the 1991–2020 calibration period!
-  Likewise, the final target month (December 2024) requires October and November 2024. The pipeline maintains the complete continuous 528-month climate series, selecting calibration samples by ending calendar month only when estimating distribution parameters.
+  Calculating the rolling 3-month water balance for January 1981 requires climate observations from **November 1980 and December 1980**:
+  $$D_{3,\text{Jan 1981}} = D_{\text{Nov 1980}} + D_{\text{Dec 1980}} + D_{\text{Jan 1981}}$$
+  $$D_{3,\text{Feb 1981}} = D_{\text{Dec 1980}} + D_{\text{Jan 1981}} + D_{\text{Feb 1981}}$$
+* **CHIRPS-2.0 Product Boundary Reality:**
+  CHIRPS-2.0 precipitation data begins strictly in January 1981 (UCSB CHC data server returns `HTTP Error 404` for 1980). A pre-1981 precipitation buffer cannot be obtained from CHIRPS-2.0.
+* **Zero Synthetic Fallback Policy:**
+  Under the zero synthetic fallback rule, the first two rolling 3-month values in the 1981–2024 series are mathematically unavailable (`NaN`). Artificial backfilling, climatological substitution, or synthetic padding is strictly prohibited.
+* **Exact Calibration Sample Counts (1981–2005 Training Baseline):**
+  * Calendar Month 1 (January SPEI-3): $N = \mathbf{24\text{ valid observations}}$ (1982–2005).
+  * Calendar Month 2 (February SPEI-3): $N = \mathbf{24\text{ valid observations}}$ (1982–2005).
+  * Calendar Months 3 to 12 (March to December SPEI-3): $N = \mathbf{25\text{ valid observations}}$ (1981–2005).
+  * **Primary Seasonal Forecast Target (September SPEI-3, Month 9):** Captures July, August, and September water balance. All 3 constituent months exist in 1981, yielding the full $N = \mathbf{25\text{ valid observations}}$ (1981–2005).
 
 ### 5.2 Multi-Protocol 4-Tier Target Calibration Schema (Zero Leakage)
 
-To guarantee that target construction strictly avoids information leakage and prevents conflation of different calibration baselines, the pipeline produces and stores four separate standardized series:
+To guarantee that target construction strictly avoids information leakage, four separate standardized series are produced and stored:
 
 1. **Retrospective Climatological Target (`spei3_retro`):**
    * Calibrated over the declared 30-year WMO normal period (**1991–2020**; $N=30$ observations per calendar month).
-   * Used exclusively for retrospective historical hazard analysis, decadal climatology, and long-term monitoring.
+   * Used exclusively for retrospective historical hazard analysis and decadal benchmarking.
 2. **Training-Era Target (`spei3_train`):**
-   * Calibrated strictly using observations from the training split (**1981–2005**, $N=25$ observations per calendar month).
+   * Calibrated strictly using observations from the training split (**1981–2005**, $N=24$ for Jan/Feb, $N=25$ for Mar–Dec).
    * Quantifies historical drought severity on the training era with training-available information only.
 3. **Validation Target (`spei3_validation`):**
    * Standardized across the validation split (**2006–2014**, $N=9$) using **FROZEN 1981–2005 distribution parameters**.
@@ -253,136 +262,71 @@ To guarantee that target construction strictly avoids information leakage and pr
    * Standardized across the frozen holdout split (**2015–2024**, $N=10$) using **FROZEN 1981–2005 distribution parameters**.
    * Zero test observations are used in parameter fitting, ensuring a common mathematical scale between training and test holdouts.
 5. **Auxiliary Sensitivity Target (`spei3_test_expanded_sensitivity`):**
-   * An alternative test target standardized using parameters fitted on the expanded pre-test archive (**1981–2014**, $N=34$).
-   * Maintained and reported strictly as a separately labelled sensitivity comparison to evaluate the trade-off between sample size ($N=25$ vs $N=34$) and temporal stationarity.
+   * Standardized using parameters fitted on the expanded pre-test archive (**1981–2014**, $N=34$).
+   * Maintained strictly as a separately labelled sensitivity comparison to evaluate the trade-off between sample size ($N=25$ vs $N=34$) and temporal stationarity.
 
-* **Parameter Uncertainty & Sample Size Reality ($N=25$):**
-  Estimating a three-parameter Generalized Logistic distribution $(\xi, \alpha, k)$ from $N=25$ observations incurs shape parameter sampling variance. The pipeline computes parametric bootstrap standard errors for $(\xi, \alpha, k)$ and outputs them in target metadata.
-* **Frozen Training-Calibration Parameter Rule:**
-  The predictive forecasting models must strictly use the frozen training-calibration parameters (`spei3_train`, 1981–2005) to transform all validation (`spei3_validation`) and test (`spei3_test`) targets. The expanded calibration (`spei3_test_expanded_sensitivity`) is strictly an auxiliary sensitivity analysis, not a replacement test target chosen post-hoc after inspecting predictive skill.
-* **Distribution Goodness-of-Fit Diagnostics:**
-  For every calibration fold, the pipeline executes and records Kolmogorov-Smirnov (KS) test statistics and p-values alongside support boundary audits (boundary limits $\xi + \alpha/k$ and violation counts) to verify that the fitted GLO distribution adequately represents the month-specific water-balance samples.
+### 5.3 Hargreaves–Samani PET & Non-Linear Daily Covariance
 
-### 5.3 Hargreaves–Samani PET & Radiative Formulation (FAO-56 Standard)
+* **Physical Equations (FAO-56 Standard):**
+  $$ET_{0,d} = 0.0023 \times 0.408 \times R_{a,\text{MJ}} \times (T_{\text{mean}} + 17.8) \sqrt{T_{\max} - T_{\min}} \quad [\text{mm/day}]$$
+* **Interpretation of Daily Summation vs Monthly-Mean Inputs:**
+  * Because $g(u) = \sqrt{u}$ is strictly concave, Jensen's inequality guarantees $\overline{\sqrt{\text{DTR}}} \le \sqrt{\overline{\text{DTR}}}$.
+  * However, Jensen's inequality on the square-root term alone **does not establish the net direction of bias** in the complete Hargreaves–Samani equation.
+  * In the full equation, daily radiation $R_a$, temperature $(T_{\text{mean}} + 17.8)$, and $\sqrt{\text{DTR}}$ covary synoptically across days within a month:
+    $$\overline{R_a (T_{\text{mean}} + 17.8) \sqrt{\text{DTR}}} = \overline{R_a} \cdot \overline{(T_{\text{mean}} + 17.8)} \cdot \overline{\sqrt{\text{DTR}}} + \text{Covariance Terms}$$
+  * Daily calculation preserves day-to-day joint variation in temperature, diurnal range, and extraterrestrial radiation.
+  * The net empirical difference between daily summation and monthly-input calculation reflects the competition between concavity and synoptic covariance, and must be evaluated empirically for the Tekezé catchment rather than asserted a priori.
 
-* **Physical Units and Equations:**
-  In the conventional Hargreaves–Samani formulation (FAO-56 Eq. 52; Hargreaves & Samani 1985), extraterrestrial radiation $R_a$ is computed in energy units:
-  $$R_a \quad [\text{MJ}\cdot\text{m}^{-2}\cdot\text{day}^{-1}]$$
-  Converting energy into equivalent water depth evaporation requires multiplying by $\frac{1}{\lambda \rho_w} \approx 0.408 \text{ mm}/(\text{MJ}\cdot\text{m}^{-2})$ (where latent heat of vaporization $\lambda \approx 2.45\text{ MJ/kg}$):
-  $$R_{a,\text{eq}} = 0.408 \cdot R_a \quad [\text{mm}\cdot\text{day}^{-1}]$$
-  The daily reference evapotranspiration ($\text{PET}_d$) is therefore:
-  $$\text{PET}_d = 0.0023 \times 0.408 \times R_{a,\text{MJ}} \times (T_{\text{mean}} + 17.8) \sqrt{T_{\max} - T_{\min}} \quad [\text{mm/day}]$$
-  $$\equiv 0.0023 \times R_{a,\text{eq}} \times (T_{\text{mean}} + 17.8) \sqrt{T_{\max} - T_{\min}} \quad [\text{mm/day}]$$
-  Where $0.0023 \times 0.408 = 0.0009384$.
-* **Monthly Accumulation from Daily Extrema:**
-  Monthly PET is accumulated as the exact sum of daily values:
-  $$\text{PET}_{\text{month}} = \sum_{d=1}^{N_m} \text{PET}_{d} \quad [\text{mm/month}]$$
-  This explicitly accounts for:
-  1. Leap-year day counts ($N_m = 29$ days in February 1984, 1988, ..., 2024 vs $28$ days in non-leap years).
-  2. Daily solar declination and astronomical radiation dynamics across the catchment.
-  3. Strict input validity rejection: $T_{\max} < T_{\min}$ or non-finite inputs immediately return `NaN`.
-* **Scientific Distinction: Reference Evapotranspiration ($\text{ET}_0$) vs Actual Evapotranspiration ($\text{ET}_a$):**
-  Hargreaves–Samani estimates reference evapotranspiration ($\text{ET}_0$) of a hypothetical well-watered grass surface from ambient air temperature and extraterrestrial radiation. It does not measure actual catchment evapotranspiration ($\text{ET}_a$), which is heavily constrained by soil moisture depletion during semi-arid dry spells. The resulting climatic water balance $D = P - \text{ET}_0$ measures atmospheric evaporative demand vs precipitation supply. Before final drought severity interpretation, the pipeline evaluates SPEI sensitivity across alternative PET methods (Hargreaves vs Thornthwaite vs ERA5-Land Penman-Monteith).
-* **Interpretation of Jensen's Inequality:**
-  Because $f(u) = \sqrt{u}$ is strictly concave, $\mathbb{E}[\sqrt{\Delta T}] \le \sqrt{\mathbb{E}[\Delta T]}$. Summing daily PET avoids the positive bias introduced by evaluating monthly average diurnal range $\sqrt{\bar{T}_{\max} - \bar{T}_{\min}}$.
+### 5.4 GLO Distribution Numerical Stability & Safeguard Qualification
 
-### 5.4 GLO Distribution Numerical Stability & Scientific Qualification of Endpoint Safeguards
-
-Under Hosking (1990) Generalized Logistic distribution:
 * **CDF Evaluation:** The cumulative distribution function $F(x) = \frac{1}{1 + (1 - k(x - \xi)/\alpha)^{1/k}}$ is evaluated directly in double precision without an arbitrary probability floor, returning the most accurate representable float in $[0.0, 1.0]$.
-* **Operational Safeguard vs. Asymptotic Normal-Score:**
-  Mapping endpoint probabilities ($p \le 0 \mapsto z = -5.0$, $p \ge 1 \mapsto z = +5.0$) is an **operational safeguard**, not an exact normal-score transformation. Different extreme probabilities in the far tail become indistinguishable after the cap. To ensure scientific rigor, three additional checks are implemented:
-  1. **Count Endpoint Events (`summarize_safeguards_by_month_and_split`):**
-     The pipeline tallies and reports how many observations trigger each safeguard, broken down by calendar month ($1..12$) and dataset split (Training 1981–2005, Validation 2006–2014, Primary Test 2015–2024, Retrospective 1981–2024).
-  2. **Preserve Diagnostic Information:**
-     Every output preserves the raw non-exceedance probability $p_{\text{raw}}$, the transformed score $z$, and the specific safeguard flag (`NONE`, `LOWER_ENDPOINT_SAFEGUARD`, `UPPER_ENDPOINT_SAFEGUARD`, `LOWER_TAIL_CLAMP`, `UPPER_TAIL_CLAMP`).
-  3. **Sensitivity Analysis via Robust Log-CDF / Log-Survival:**
-     The pipeline implements exact asymptotic log-scale transformations:
-     $$\ln F(x) = -\text{logaddexp}\left(0, \frac{1}{k}\ln\left(1 - \frac{k(x - \xi)}{\alpha}\right)\right)$$
-     $$\ln(1 - F(x)) = -\text{logaddexp}\left(0, -\frac{1}{k}\ln\left(1 - \frac{k(x - \xi)}{\alpha}\right)\right)$$
-     Combined with `scipy.special.ndtri_exp`, this evaluates uncapped asymptotic scores ($z < -5.0$ to $z \approx -10.8$) without numerical underflow. The function `compare_safeguard_cap_vs_robust_log_transformation` compares the operational cap against the uncapped log-scale implementation, verifying that:
-     * Discrepancy inside the operational domain ($|z| < 4.9$) is $< 10^{-4}$.
-     * Categorical drought classification is **100% invariant** across all standard thresholds ($\text{SPEI} \le -1.0, -1.5, -2.0, -2.5$).
-* **Current Status:** `NOT RUN` (Paused pending Gate 1 completion).
-
-### 5.5 Pre-Gate 4 Research Checklist & Priority Execution Order
-
-Before declaring Gate 4 passed and reconstructing the historical series, the pipeline must complete four research priorities:
-
-1. **Priority 1: Finish Gate 1 (Raw Climate Ingestion & Provenance):**
-   * Download the missing 359 CHIRPS monthly GeoTIFFs via `scripts/download_chirps_monthly_missing_1981_2024.py` from UCSB CHC.
-   * Ingest complete 1981–2024 ERA5-Land hourly 2 m temperature archive via Copernicus CDS API (`scripts/download_era5_land_tekeze_1981_2024.py`).
-   * Download NOAA CPC NetCDF files with exponential backoff.
-   * Verify spatial bounding boxes, coordinates, missing value flags, units, duplicate records, and generate immutable SHA-256 provenance manifests.
-   * **Strict Constraint:** Never generate a full 1981–2024 drought series from incomplete precipitation or temperature coverage.
-2. **Priority 2: Independently Validate PET and SPEI:**
-   * Test radiation and PET against published numerical examples (FAO-56 Table 2.6 benchmarks verified in `test_hargreaves_published_reference_direct_calculation`).
-   * Compare Gamma SPI and GLO SPEI outputs against independently generated reference fixtures (19 tests in `test_gate2_mathematical_benchmarks.py`).
-   * Include zero-rainfall, leap-year, missing-data, and extreme-tail cases.
-3. **Priority 3: Validate Reconstructed Drought History:**
-   * Corroborate SPEI-3 with independent evidence: CHIRPS rainfall anomalies, available soil-moisture products, vegetation health indicators (NOAA VHI), and documented historical famine/drought years in Northern Ethiopia (1984/85, 2002/03, 2015/16).
-   * Document corroborations as scientific validation hypotheses, not as circular proofs that every index value is exact.
-4. **Priority 4: Freeze the Forecast Protocol Before Evaluating Test Holdout:**
-   * Document all predictors available by the May 31 issue cutoff, data publication delays, model-selection rules, drought threshold ($\text{SPEI-3} \le -1.0$), and baseline implementations.
-   * Strictly forbid tuning models on the ten 2015–2024 test outcomes.
+* **Operational Safeguards vs Asymptotic Normal-Score:**
+  * Mapping endpoint probabilities ($p \le 0 \mapsto z = -5.0$, $p \ge 1 \mapsto z = +5.0$) is an **operational safeguard**, not an exact normal-score transformation.
+  * Exact log-scale transformations are implemented:
+    $$\ln F(x) = -\text{logaddexp}\left(0, \frac{1}{k}\ln\left(1 - \frac{k(x - \xi)}{\alpha}\right)\right)$$
+    $$\ln(1 - F(x)) = -\text{logaddexp}\left(0, -\frac{1}{k}\ln\left(1 - \frac{k(x - \xi)}{\alpha}\right)\right)$$
+  * Combined with `scipy.special.ndtri_exp`, this evaluates uncapped asymptotic scores ($z < -5.0$ to $z \approx -10.8$) without underflow.
+  * Categorical drought classification is **100% invariant** across all standard thresholds ($\text{SPEI} \le -1.0, -1.5, -2.0, -2.5$).
 
 ---
 
 ## 6. Gate 5 — Build and Evaluate Predictive Forecasting Models
 
-### 6.1 Operational Forecast Task Formulation
+### 6.1 Operational Forecast Task Formulation & Data Publication Latency
 
-To eliminate temporal data leakage and establish operational realism:
 * **Target Index:** September-ending $\text{SPEI-3}_{\text{eval}}$ (capturing Kiremt seasonal moisture: July, August, September).
 * **Operational Issue Date:** June 1.
-* **Valid Target Period:** July 1 through September 30.
-* **Lead Time Definition:** 3 months from issue date to accumulation end (September 30), or 1 month from issue date to accumulation start (July 1).
-* **Information Cutoff:** Strictly **May 31**.
-  * Predictor features are restricted exclusively to data observed on or before May 31.
-  * July, August, and September rainfall and temperature are completely unobserved on June 1 and **must never enter predictor features**.
-  * Actual operational publication schedules (e.g. real-world latency of ocean SST teleconnection products) are documented and enforced, rather than assuming an arbitrary nominal lag.
-
-### 6.2 Model Progression & Small-Sample Evaluation Rigor
-
-1. **Predefined Drought Event Threshold:**
-   * Declared in advance: $\text{SPEI-3}_{\text{eval}} \le -1.0$ represents moderate-or-worse drought.
-2. **Baselines First (Fit on Training Data Only):**
-   * Dynamic Climatology (monthly empirical distribution over 1981–2005).
-   * Persistence ($\text{SPEI-3}_{\text{eval}}$ at issue date $t_0$).
-   * Autoregressive (ARIMA / seasonal ARIMAX).
-3. **Machine Learning Benchmarks:**
-   * Regularized Linear / Ridge Regression.
-   * Gradient Boosted Decision Trees (XGBoost).
-   * Recurrent Neural Networks (LSTM / BiLSTM).
-   * Spatiotemporal Architectures (CNN-LSTM, Fourier Neural Operator).
-4. **Small-Sample Test Set Realities ($N=10$):**
-   * The frozen test set (2015–2024) contains exactly **10 annual September forecasts**.
-   * With only 10 cases, bootstrap confidence intervals are unstable, especially if few events cross the $\text{SPEI-3} \le -1.0$ threshold.
-   * **Mandatory Reporting:** The pipeline must report the exact number of drought events and non-events alongside Brier Score ($BS$), Brier Skill Score ($\text{BSS}$), and CRPS.
-   * **Uncertainty Qualification:** If there are very few drought events, event-specific metrics will be highly uncertain. Use paired resampling procedures and explicitly label all uncertainty estimates as **exploratory**.
-   * **Decadal Generalization & Non-Stationarity Caveat:** A positive Brier Skill Score over ten years is encouraging preliminary evidence, but it is not strong evidence by itself that a model will generalize to other decades or non-stationary climate conditions.
-5. **Frozen Holdout Discipline:**
-   * Test set decisions remain strictly frozen; no hyperparameters, features, or thresholds may be tuned after inspecting test outcomes.
-* **Current Status:** `NOT RUN` (Paused pending Gate 4 completion).
+* **Information Availability Cutoff:** Strictly **May 31 23:59 UTC**.
+* **Operational Persistence Baseline:**
+  * The persistence baseline is defined as the **latest eligible observed SPEI-3 value available by the June 1 issue cutoff**, accounting for verified product publication latency.
+  * CHIRPS Final monthly precipitation is typically published 2–3 weeks after month-end. Therefore, on June 1, **April-ending SPEI-3** (covering February–April) is the latest verified quality-controlled SPEI-3 observation. If CHIRPS Preliminary for May is published by May 31, May SPEI-3 is recorded as preliminary.
+  * The pipeline records the ending month and publication timestamp for each persistence baseline.
+* **Separation of Leakage-Safe Predictor Cutoff and Target Definition:**
+  1. *No Future Predictor Information:* Predictor features (including SST teleconnections ONI, DMI, TNA) are strictly limited to indices published on or before June 1 00:00 UTC.
+  2. *Fixed Target Calibration:* The September SPEI-3 forecast target strictly uses the frozen 1981–2005 training calibration. Feature selection, preprocessing, and hyperparameter tuning must never inspect validation or test outcomes.
 
 ---
 
-## 7. Gate 6 — Connect Results to AgriMinds Dashboard
-
-* **Visual Separation:** Historical observed/reanalysis drought records and probabilistic forecasts are displayed on distinct visual layers.
-* **Metadata Display:** Explicitly renders issue date, valid accumulation window, predictive intervals, and observation cutoff.
-* **Fail-Safe Operation:** Data ingestion failures trigger explicit warning banners; missing observations never generate synthetic predictions.
-* **Current Status:** `NOT RUN` (Architected & Specified).
-
----
-
-## 8. Master Gate Status & Acceptance Matrix
+## 7. Master Gate Status & Acceptance Matrix
 
 | Gate | Scope | Status | Acceptance Deliverable | Evidence Artifact |
 |:---:|---|:---:|---|---|
 | **Gate 1** | Climate Data Acquisition & Provenance | **PARTIAL** | Complete 1981–2024 ERA5-Land & CPC Ingestion & Manifest | [`docs/gate1_raw_temperature_ingestion_audit_report.md`](docs/gate1_raw_temperature_ingestion_audit_report.md) |
-| **Gate 2** | Mathematical Implementation Cross-Validation | **PASS — reported** | Reproducible independent R `lmom` fixtures, FAO-56 direct benchmarks & 19 tests | [`docs/gate2_cross_language_mathematical_validation_report.md`](docs/gate2_cross_language_mathematical_validation_report.md) |
-| **Gate 3** | Spatial and Temporal Integrity Auditing | **PASS — reported** | 528-month sequence & physical spatial weighting tests ($a_i$ in $\text{km}^2$) | [`docs/gate3_spatial_and_temporal_integrity_audit.md`](docs/gate3_spatial_and_temporal_integrity_audit.md) |
-| **Gate 4** | Drought Target Reconstruction & Event Validation | **NOT RUN** | Dual-target SPEI-3 table, boundary audits, and event evaluation | [`docs/gate4_drought_indices_reconstruction_and_validation.md`](docs/gate4_drought_indices_reconstruction_and_validation.md) |
-| **Gate 5** | Predictive Forecasting Model Formulation | **NOT RUN** | Out-of-sample Brier benchmarks on frozen test set & leakage audit | [`docs/gate5_predictive_model_architecture_and_leakage_audit.md`](docs/gate5_predictive_model_architecture_and_leakage_audit.md) |
+| **Gate 2** | Mathematical Implementation Cross-Validation | **PASS — reported** | GLO Taylor expansions, bootstrap KS p-values, R `lmom` fixtures (22 tests) | [`docs/gate2_cross_language_mathematical_validation_report.md`](docs/gate2_cross_language_mathematical_validation_report.md) |
+| **Gate 3** | Spatial and Temporal Integrity Auditing | **PASS — reported** | Independent topology verification, buffer sample counts & 528-month sequence (9 tests) | [`docs/gate3_spatial_and_temporal_integrity_audit.md`](docs/gate3_spatial_and_temporal_integrity_audit.md) |
+| **Gate 4** | Drought Target Reconstruction & Event Validation | **NOT RUN** | 4-Tier SPEI-3 table, boundary audits, and event evaluation | [`docs/gate4_drought_indices_reconstruction_and_validation.md`](docs/gate4_drought_indices_reconstruction_and_validation.md) |
+| **Gate 5** | Predictive Forecasting Model Formulation | **NOT RUN** | Out-of-sample Brier benchmarks on frozen test set & latency-safe persistence | [`docs/gate5_predictive_model_architecture_and_leakage_audit.md`](docs/gate5_predictive_model_architecture_and_leakage_audit.md) |
 | **Gate 6** | Operational AgriMinds Dashboard Interface | **NOT RUN** | Documented API, fail-safe UI, and telemetry | [`docs/gate6_agriminds_dashboard_interface_and_monitoring.md`](docs/gate6_agriminds_dashboard_interface_and_monitoring.md) |
+
+---
+
+## 8. Scientific Execution Checklist (REV7.1 Verification)
+
+- [x] **1. CHIRPS Missing-File Count Reconciled:** Reconciled from initial inventory (168 present, 360 missing) to post-test state (169 present, 359 missing). Dynamic month-by-month inventory verified.
+- [x] **2. 1980 Pre-Period Buffer Reality Documented:** Verified CHIRPS-2.0 returns HTTP 404 for 1980; rolling 3-month values are strictly `NaN` for Jan/Feb 1981, yielding $N=24$ for months 1 & 2, and $N=25$ for months 3–12 (including September target).
+- [x] **3. Parametric Bootstrap Goodness-of-Fit Implemented:** Retained descriptive KS statistic; implemented $B=200$ parametric bootstrap refitting (Lilliefors / Stute procedure) and Q-Q diagnostics ($R^2 > 0.95$).
+- [x] **4. Jensen's Inequality PET Claim Corrected:** Removed directional bias assertion based solely on $\sqrt{\text{DTR}}$ concavity; explained synoptic covariance $\text{Cov}(R_a, T_{\text{mean}}+17.8, \sqrt{\text{DTR}})$ and empirical assessment requirement.
+- [x] **5. Zero-Shape Taylor Series Implemented:** Implemented 8th-order Taylor series for scale $\alpha$ and location $\xi$ when $|k| < 0.02$, eliminating catastrophic cancellation in $\xi$. Added unit tests across small shapes down to $k=0.0$.
+- [x] **6. Operational Persistence Baseline Formalized:** Defined persistence as the latest eligible observed SPEI-3 available by June 1 cutoff considering verified data publication latency (April-ending SPEI-3 for finalized CHIRPS).
+- [x] **7. Catchment Topology & Area Verified:** Verified HydroBASINS Level 5 Africa source polygons (`1050648030`, `1050692800`, `1050692900`), pairwise disjoint interiors ($0.00\text{ km}^2$ overlap), single valid polygon, and reported attribute sum ($67,135.40\text{ km}^2$) vs spherical geodesic area ($67,135.57\text{ km}^2$, $0.0003\%$ diff).
+- [x] **8. Gate Status Discipline Enforced:** Gates 2 and 3 kept as reported/provisional with 42 passing tests; Gate 1 kept as PARTIAL; Gate 4 strictly paused.

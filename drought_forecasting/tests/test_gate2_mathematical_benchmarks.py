@@ -38,6 +38,7 @@ from agriminds.climate.spei_calculator import (
     generate_four_tier_spei_targets,
     log_cdf_generalized_logistic,
     log_survival_generalized_logistic,
+    quantile_generalized_logistic,
     summarize_safeguard_occurrences,
     summarize_safeguards_by_month_and_split,
 )
@@ -689,5 +690,96 @@ def test_rolling_spei_diagnostics_and_safeguards():
     summary = res["safeguard_summary"]
     assert summary["total_timesteps"] == total_months
     assert len(summary["by_calendar_month"]) == 12
+
+
+def test_glo_parameter_estimation_near_zero_shape():
+    """
+    MATHEMATICAL AUDIT (REV7.1):
+    Verify that GLO parameter estimation (Hosking 1990) remains numerically stable
+    and continuous as shape parameter k approaches zero, without catastrophic cancellation
+    in (1 - k*pi / sin(k*pi)) / k or (sin(k*pi) / (k*pi)).
+    """
+    xi_true = 5.0
+    alpha_true = 12.0
+
+    # Test across small shape values down to exact 0.0
+    test_shapes = [0.05, -0.05, 0.02, -0.02, 0.01, -0.01, 1e-4, -1e-4, 1e-6, -1e-6, 1e-8, -1e-8, 0.0]
+
+    for k in test_shapes:
+        # Generate exact quantiles across 500 points to create synthetic sample with known L-moments
+        u_pts = (np.arange(1, 501) - 0.5) / 500.0
+        x_pts = np.array([quantile_generalized_logistic(float(u), xi_true, alpha_true, k) for u in u_pts])
+
+        # Estimate parameters
+        xi_est, alpha_est, k_est = fit_generalized_logistic_l_moments(x_pts, min_samples=20)
+
+        # Basic validity
+        assert math.isfinite(xi_est), f"Estimated xi non-finite for k={k}"
+        assert math.isfinite(alpha_est) and alpha_est > 0.0, f"Estimated alpha invalid for k={k}"
+        assert math.isfinite(k_est), f"Estimated k non-finite for k={k}"
+
+        # As k -> 0, estimated parameters should smoothly converge to the logistic parameters
+        assert xi_est == pytest.approx(xi_true, abs=0.1), f"Location discrepancy for k={k}: {xi_est}"
+        assert alpha_est == pytest.approx(alpha_true, abs=0.1), f"Scale discrepancy for k={k}: {alpha_est}"
+        assert k_est == pytest.approx(k, abs=0.01), f"Shape discrepancy for k={k}: {k_est}"
+
+
+def test_glo_quantile_function_and_continuity_near_zero():
+    """
+    Verify quantile function quantile_generalized_logistic across central and tail probabilities
+    and verify smooth convergence to the logistic quantile x(F) = xi - alpha * ln((1-F)/F).
+    """
+    xi, alpha = 0.0, 1.0
+
+    # 1. Round-trip identity |F(x(F)) - F| < 1e-5
+    for k in [-0.2, -0.01, 0.0, 0.01, 0.2]:
+        for f in [0.001, 0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99, 0.999]:
+            x_val = quantile_generalized_logistic(f, xi, alpha, k)
+            f_calc = cdf_generalized_logistic(x_val, xi, alpha, k)
+            assert f_calc == pytest.approx(f, abs=1e-5), f"Round-trip failed for k={k}, f={f}"
+
+    # 2. Smooth convergence to logistic quantile as k -> 0
+    f_test = 0.80
+    x_logistic = xi - alpha * math.log((1.0 - f_test) / f_test)  # Logistic quantile ~ 1.38629
+    x_k_small = quantile_generalized_logistic(f_test, xi, alpha, 1e-6)
+    assert x_k_small == pytest.approx(x_logistic, rel=1e-5)
+
+
+def test_glo_parametric_bootstrap_goodness_of_fit():
+    """
+    STATISTICAL AUDIT (REV7.1):
+    Verify that check_glo_goodness_of_fit implements parametric bootstrap refitting
+    (Lilliefors / Stute procedure) to produce calibrated p-values on small monthly samples (N=25),
+    along with descriptive KS statistics and Q-Q diagnostics.
+    """
+    np.random.seed(42)
+    n = 25
+    xi_true, alpha_true, k_true = 10.0, 15.0, -0.15
+
+    # Sample from true GLO
+    u_samp = np.random.uniform(0.01, 0.99, size=n)
+    sample_data = np.array([quantile_generalized_logistic(float(u), xi_true, alpha_true, k_true) for u in u_samp])
+
+    xi_fit, alpha_fit, k_fit = fit_generalized_logistic_l_moments(sample_data, min_samples=20)
+
+    res = check_glo_goodness_of_fit(sample_data, xi_fit, alpha_fit, k_fit, n_bootstrap=100, random_state=42)
+
+    assert res["n_samples"] == 25
+    assert "kolmogorov_smirnov" in res
+    ks = res["kolmogorov_smirnov"]
+    assert math.isfinite(ks["statistic"])
+    assert ks["statistic"] > 0.0
+    assert math.isfinite(ks["p_value_asymptotic_unadjusted"])
+    assert math.isfinite(ks["p_value_parametric_bootstrap"])
+    assert 0.0 <= ks["p_value_parametric_bootstrap"] <= 1.0
+    assert ks["bootstrap_replicates"] >= 50
+    assert ks["adequate_fit_bootstrap_05"] is True
+    assert "qualification" in ks
+
+    # Q-Q diagnostics
+    qq = res["qq_diagnostics"]
+    assert math.isfinite(qq["r_squared"])
+    assert qq["r_squared"] > 0.95, f"Expected high Q-Q correlation for sample from true GLO, got {qq['r_squared']}"
+
 
 

@@ -224,11 +224,16 @@ def calculate_hargreaves_pet(
         Estimates reference evapotranspiration (ET_0), not actual evapotranspiration (ET_a).
         SPEI measures the standardized deficit of precipitation relative to reference demand.
 
-    Methodological Note on Jensen's Inequality:
-        Because sqrt(u) is strictly concave, E[sqrt(DTR)] <= sqrt(E[DTR]).
-        Computing PET from monthly-mean extrema introduces an empirical difference
-        relative to summing daily PET values. In AI-DREWS, daily PET is summed across
-        all calendar days whenever daily data (ERA5-Land / CPC) is processed.
+    Methodological Note on Daily vs Monthly Inputs (Jensen's Inequality & Synoptic Covariance):
+        While the square-root function sqrt(u) is concave (guaranteeing E[sqrt(DTR)] <= sqrt(E[DTR])),
+        Jensen's inequality on the DTR term alone does not determine the direction of bias in the complete
+        Hargreaves-Samani equation. The equation involves the product of radiation, temperature, and sqrt(DTR),
+        which covary synoptically across days within a month:
+            Cov(Ra, (T_mean + 17.8), sqrt(DTR))
+        Daily calculation preserves this day-to-day joint variation in temperature, diurnal range,
+        and extraterrestrial radiation. The net empirical difference between daily summation and monthly-input
+        calculation reflects both concavity and synoptic covariance, and must be evaluated empirically
+        for the Tekezé catchment rather than asserted a priori.
 
     Returns:
         Monthly PET in mm/month, or float("nan") if inputs are non-finite, missing, or unphysical.
@@ -379,9 +384,20 @@ def fit_generalized_logistic_l_moments(
             f"Fitting rejected."
         )
 
-    if abs(k) < 1e-6:
-        alpha = l2
-        xi = l1
+    if abs(k) < 0.02:
+        # High-order Taylor series expansion around k=0 (Hosking 1990; REV7.1 standard)
+        # to eliminate catastrophic cancellation in (1 - k*pi / sin(k*pi)) / k and (sin(k*pi) / (k*pi)).
+        # Alpha series: l2 * (1 - pi^2 k^2 / 6 + pi^4 k^4 / 120 - pi^6 k^6 / 5040 + pi^8 k^8 / 362880)
+        # Xi series: l1 + alpha * k * (pi^2 / 6 + 7 pi^4 k^2 / 360 + 31 pi^6 k^4 / 15120 + 127 pi^8 k^6 / 604800)
+        k2 = k * k
+        pi = math.pi
+        pi2 = pi * pi
+        pi4 = pi2 * pi2
+        pi6 = pi4 * pi2
+        pi8 = pi4 * pi4
+        alpha = l2 * (1.0 - (pi2 * k2) / 6.0 + (pi4 * k2 * k2) / 120.0 - (pi6 * (k2 ** 3)) / 5040.0 + (pi8 * (k2 ** 4)) / 362880.0)
+        xi_term = (pi2 / 6.0) + (7.0 * pi4 * k2) / 360.0 + (31.0 * pi6 * k2 * k2) / 15120.0 + (127.0 * pi8 * (k2 ** 3)) / 604800.0
+        xi = l1 + alpha * k * xi_term
     else:
         k_pi = k * math.pi
         sin_k_pi = math.sin(k_pi)
@@ -394,6 +410,55 @@ def fit_generalized_logistic_l_moments(
         raise ValueError(f"Generalized Logistic scale alpha={alpha:.4f} <= 0. Fitting failed.")
 
     return float(xi), float(alpha), float(k)
+
+
+def quantile_generalized_logistic(f: float, xi: float, alpha: float, k: float) -> float:
+    """
+    Computes quantile x(F) under the Generalized Logistic distribution (Hosking 1990; lmom::quaglo).
+
+    Formula:
+        For |k| < 1e-6 (Logistic limit):
+            x(F) = xi - alpha * ln((1 - F) / F)
+        For small |k| < 0.02 (Taylor expansion):
+            u = (1 - F) / F
+            x(F) = xi - alpha * (ln u + k/2 (ln u)^2 + k^2/6 (ln u)^3 + k^3/24 (ln u)^4)
+        For general k:
+            x(F) = xi + (alpha / k) * (1 - ((1 - F) / F)^k)
+
+    Support Boundaries:
+        k > 0: upper bounded at xi + alpha/k (F -> 1)
+        k < 0: lower bounded at xi + alpha/k (F -> 0)
+    """
+    if not (math.isfinite(f) and 0.0 < f < 1.0):
+        if f <= 0.0:
+            return -float("inf") if k >= 0 else float(xi + alpha / k)
+        if f >= 1.0:
+            return float(xi + alpha / k) if k > 0 else float("inf")
+        return float("nan")
+
+    u = (1.0 - f) / f
+    if abs(k) < 1e-6:
+        return float(xi - alpha * math.log(u))
+
+    log_u = math.log(u)
+    k_log_u = k * log_u
+
+    if abs(k_log_u) < 0.02:
+        # High-order series expansion of (1 - u^k)/k = -log(u) * (1 + k*log(u)/2 + ...)
+        term = -log_u * (
+            1.0
+            + k_log_u / 2.0
+            + (k_log_u ** 2) / 6.0
+            + (k_log_u ** 3) / 24.0
+            + (k_log_u ** 4) / 120.0
+        )
+        return float(xi + alpha * term)
+
+    try:
+        u_k = u ** k
+        return float(xi + (alpha / k) * (1.0 - u_k))
+    except OverflowError:
+        return float(xi + alpha / k) if k > 0 else float("-inf")
 
 
 def cdf_generalized_logistic(x: float, xi: float, alpha: float, k: float) -> float:
@@ -904,19 +969,34 @@ def check_glo_goodness_of_fit(
     sample_data: np.ndarray,
     xi: float,
     alpha: float,
-    k: float
+    k: float,
+    n_bootstrap: int = 200,
+    random_state: int = 42
 ) -> Dict[str, Any]:
     """
     Computes empirical goodness-of-fit and support diagnostics for fitted Generalized Logistic distribution.
-    Checks:
-      1. Kolmogorov-Smirnov test statistic and asymptotic p-value.
-      2. Support boundary limits: upper bound (k > 0) or lower bound (k < 0).
-      3. Count of sample observations violating or approaching support limits.
+
+    Methodological Qualifications (REV7.1 Standard):
+      1. Descriptive KS Statistic:
+         D_obs = sup_x |F_n(x) - F_GLO(x; xi, alpha, k)|.
+      2. Calibration of KS p-values (Parametric Bootstrap):
+         Standard asymptotic Kolmogorov-Smirnov p-values assume a known reference distribution.
+         When distribution parameters are estimated from the same sample (especially on small
+         monthly cohorts N=24-25), ordinary KS p-values do not yield calibrated significance levels
+         (Lilliefors / Stute issue). A parametric bootstrap is conducted: B synthetic samples of size N
+         are drawn from GLO(xi, alpha, k), parameters are refitted on each replicate using L-moments,
+         and the empirical distribution of bootstrap KS statistics yields the calibrated p_boot.
+      3. Tail Support Verification:
+         Verifies upper/lower support limits and counts any boundary violations.
+      4. Q-Q Fit Diagnostics:
+         Computes R^2 and maximum quantile discrepancy between empirical and theoretical quantiles.
     """
     clean = sample_data[np.isfinite(sample_data)]
     n = len(clean)
     if n == 0:
         return {"status": "NO_DATA"}
+
+    sorted_clean = np.sort(clean)
 
     support_type = "unbounded"
     support_bound = None
@@ -930,15 +1010,61 @@ def check_glo_goodness_of_fit(
             support_type = "lower_bounded"
             violations = int(np.sum(clean <= support_bound))
 
-    ks_stat = float("nan")
-    ks_pval = float("nan")
+    # 1. Descriptive KS statistic
+    d_obs = float("nan")
+    ks_pval_asymp = float("nan")
     try:
         from scipy.stats import kstest
         def _cdf_array(x_arr):
             return np.array([cdf_generalized_logistic(float(v), xi, alpha, k) for v in x_arr], dtype=np.float64)
         ks_res = kstest(clean, _cdf_array)
-        ks_stat = float(ks_res.statistic)
-        ks_pval = float(ks_res.pvalue)
+        d_obs = float(ks_res.statistic)
+        ks_pval_asymp = float(ks_res.pvalue)
+    except Exception:
+        # Fallback manual empirical CDF comparison
+        d_max = 0.0
+        for i, val in enumerate(sorted_clean):
+            f_th = cdf_generalized_logistic(float(val), xi, alpha, k)
+            f_hi = (i + 1.0) / n
+            f_lo = i / n
+            d_max = max(d_max, abs(f_hi - f_th), abs(f_lo - f_th))
+        d_obs = float(d_max)
+
+    # 2. Parametric Bootstrap Calibration (Lilliefors / Stute Refitting)
+    p_boot = float("nan")
+    boot_stats = []
+    if n_bootstrap > 0 and math.isfinite(d_obs) and n >= 10:
+        rng = np.random.default_rng(seed=random_state)
+        for _ in range(n_bootstrap):
+            # Sample probabilities avoiding exact boundaries
+            u_b = rng.uniform(0.005, 0.995, size=n)
+            sim_x = np.sort([quantile_generalized_logistic(float(uv), xi, alpha, k) for uv in u_b])
+            try:
+                fit_b = fit_generalized_logistic_l_moments(sim_x, min_samples=min(10, n))
+                xi_b, alpha_b, k_b = fit_b
+                # Compute KS statistic for this bootstrap sample against its OWN refitted distribution
+                d_b = 0.0
+                for i_s, v_s in enumerate(sim_x):
+                    f_th_b = cdf_generalized_logistic(float(v_s), xi_b, alpha_b, k_b)
+                    d_b = max(d_b, abs((i_s + 1.0) / n - f_th_b), abs(i_s / n - f_th_b))
+                boot_stats.append(d_b)
+            except Exception:
+                continue
+
+        if len(boot_stats) >= 20:
+            p_boot = float(np.mean(np.array(boot_stats) >= d_obs))
+
+    # 3. Q-Q Fit Diagnostics
+    qq_r2 = float("nan")
+    max_q_err = float("nan")
+    try:
+        p_emp = (np.arange(1, n + 1) - 0.375) / (n + 0.25)  # Blom plotting positions
+        q_theoretical = np.array([quantile_generalized_logistic(float(pv), xi, alpha, k) for pv in p_emp])
+        valid_q = np.isfinite(q_theoretical)
+        if np.sum(valid_q) >= 5:
+            corr = np.corrcoef(sorted_clean[valid_q], q_theoretical[valid_q])[0, 1]
+            qq_r2 = float(corr ** 2) if math.isfinite(corr) else float("nan")
+            max_q_err = float(np.max(np.abs(sorted_clean[valid_q] - q_theoretical[valid_q])))
     except Exception:
         pass
 
@@ -948,9 +1074,19 @@ def check_glo_goodness_of_fit(
         "support_boundary": support_bound,
         "support_violations_count": violations,
         "kolmogorov_smirnov": {
-            "statistic": ks_stat,
-            "p_value": ks_pval,
-            "adequate_fit_at_05": bool(ks_pval > 0.05) if math.isfinite(ks_pval) else None
+            "statistic": d_obs,
+            "p_value": ks_pval_asymp,
+            "p_value_asymptotic_unadjusted": ks_pval_asymp,
+            "p_value_parametric_bootstrap": p_boot,
+            "bootstrap_replicates": len(boot_stats),
+            "adequate_fit_at_05": bool(ks_pval_asymp > 0.05) if math.isfinite(ks_pval_asymp) else None,
+            "adequate_fit_bootstrap_05": bool(p_boot > 0.05) if math.isfinite(p_boot) else None,
+            "qualification": "Descriptive KS statistic retained; bootstrap refitting calibrated for small sample (N=24-25) parameter estimation.",
+            "calibration_qualification": "Descriptive KS statistic retained; bootstrap refitting calibrated for small sample (N=24-25) parameter estimation."
+        },
+        "qq_diagnostics": {
+            "r_squared": qq_r2,
+            "max_abs_quantile_error": max_q_err
         }
     }
 
