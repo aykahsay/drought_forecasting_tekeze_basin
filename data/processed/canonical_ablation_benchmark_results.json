@@ -1,0 +1,917 @@
+{
+  "lead_1_month": {
+    "lead_months": 1,
+    "models_ablation": {
+      "m0_climatology": {
+        "rmse": 0.9267,
+        "mse": 0.8588,
+        "mae": 0.7036,
+        "r": null
+      },
+      "m1_persistence": {
+        "rmse": 0.891,
+        "mse": 0.7939,
+        "mae": 0.6599,
+        "r": 0.5251
+      },
+      "m2_local_climate": {
+        "rmse": 0.7918,
+        "mse": 0.627,
+        "mae": 0.5803,
+        "r": 0.5242
+      },
+      "m3_pacific_informed": {
+        "rmse": 0.7934,
+        "mse": 0.6295,
+        "mae": 0.5852,
+        "r": 0.5221
+      },
+      "m4_indian_ocean_informed": {
+        "rmse": 0.7807,
+        "mse": 0.6095,
+        "mae": 0.5792,
+        "r": 0.5395
+      },
+      "m5_atlantic_informed": {
+        "rmse": 0.7915,
+        "mse": 0.6265,
+        "mae": 0.5799,
+        "r": 0.5249
+      },
+      "m6_all_three_oceans": {
+        "rmse": 0.7808,
+        "mse": 0.6096,
+        "mae": 0.5835,
+        "r": 0.5407
+      }
+    },
+    "paired_year_block_bootstrap": {
+      "m1_persistence_vs_climatology": {
+        "point_dRMSE": -0.0357,
+        "ci95_year_block": [
+          -0.1665,
+          0.1143
+        ],
+        "prob_non_improvement": 0.307,
+        "p_twosided": 0.614
+      },
+      "m2_local_climate_vs_climatology": {
+        "point_dRMSE": -0.1349,
+        "ci95_year_block": [
+          -0.2305,
+          -0.0096
+        ],
+        "prob_non_improvement": 0.017,
+        "p_twosided": 0.034
+      },
+      "m3_pacific_informed_vs_climatology": {
+        "point_dRMSE": -0.1333,
+        "ci95_year_block": [
+          -0.2313,
+          -0.0071
+        ],
+        "prob_non_improvement": 0.019,
+        "p_twosided": 0.038
+      },
+      "m4_indian_ocean_informed_vs_climatology": {
+        "point_dRMSE": -0.146,
+        "ci95_year_block": [
+          -0.2467,
+          -0.0198
+        ],
+        "prob_non_improvement": 0.016,
+        "p_twosided": 0.032
+      },
+      "m5_atlantic_informed_vs_climatology": {
+        "point_dRMSE": -0.1352,
+        "ci95_year_block": [
+          -0.231,
+          -0.0098
+        ],
+        "prob_non_improvement": 0.0175,
+        "p_twosided": 0.035
+      },
+      "m6_all_three_oceans_vs_climatology": {
+        "point_dRMSE": -0.1459,
+        "ci95_year_block": [
+          -0.2513,
+          -0.0167
+        ],
+        "prob_non_improvement": 0.017,
+        "p_twosided": 0.034
+      },
+      "m3_pacific_informed_vs_local_m2": {
+        "point_dRMSE": 0.0016,
+        "ci95_year_block": [
+          -0.0036,
+          0.0065
+        ],
+        "prob_non_improvement": 0.7465,
+        "p_twosided": 0.507
+      },
+      "m4_indian_ocean_informed_vs_local_m2": {
+        "point_dRMSE": -0.0111,
+        "ci95_year_block": [
+          -0.0243,
+          0.0004
+        ],
+        "prob_non_improvement": 0.0305,
+        "p_twosided": 0.061
+      },
+      "m5_atlantic_informed_vs_local_m2": {
+        "point_dRMSE": -0.0003,
+        "ci95_year_block": [
+          -0.0013,
+          0.0006
+        ],
+        "prob_non_improvement": 0.2885,
+        "p_twosided": 0.577
+      },
+      "m6_all_three_oceans_vs_local_m2": {
+        "point_dRMSE": -0.011,
+        "ci95_year_block": [
+          -0.0317,
+          0.0047
+        ],
+        "prob_non_improvement": 0.1415,
+        "p_twosided": 0.283
+      }
+    },
+    "seasonal_mse_decompositions": {
+      "scheme_standard_4part": {
+        "kiremt_monsoon_jas": {
+          "n_months": 24,
+          "weight": 0.25,
+          "m0_clim_rmse": 0.524,
+          "m0_clim_mse": 0.2745,
+          "m1_pers_rmse": 0.5923,
+          "m1_pers_mse": 0.3509,
+          "m2_rmse": 0.4612,
+          "m2_mse": 0.2127,
+          "m3_rmse": 0.4584,
+          "m3_mse": 0.2102,
+          "m4_rmse": 0.5047,
+          "m4_mse": 0.2547,
+          "m5_rmse": 0.4589,
+          "m5_mse": 0.2106,
+          "m6_rmse": 0.4931,
+          "m6_mse": 0.2432,
+          "delta_mse_m6_minus_clim": -0.0313,
+          "weighted_delta_mse_m6_minus_clim": -0.0078
+        },
+        "belg_rains_mam": {
+          "n_months": 24,
+          "weight": 0.25,
+          "m0_clim_rmse": 0.7679,
+          "m0_clim_mse": 0.5897,
+          "m1_pers_rmse": 0.7081,
+          "m1_pers_mse": 0.5015,
+          "m2_rmse": 0.64,
+          "m2_mse": 0.4096,
+          "m3_rmse": 0.6376,
+          "m3_mse": 0.4066,
+          "m4_rmse": 0.6333,
+          "m4_mse": 0.4011,
+          "m5_rmse": 0.6408,
+          "m5_mse": 0.4106,
+          "m6_rmse": 0.6363,
+          "m6_mse": 0.4049,
+          "delta_mse_m6_minus_clim": -0.1848,
+          "weighted_delta_mse_m6_minus_clim": -0.0462
+        },
+        "bega_dry_ondj": {
+          "n_months": 32,
+          "weight": 0.3333,
+          "m0_clim_rmse": 1.2505,
+          "m0_clim_mse": 1.5638,
+          "m1_pers_rmse": 0.8966,
+          "m1_pers_mse": 0.8038,
+          "m2_rmse": 0.9113,
+          "m2_mse": 0.8305,
+          "m3_rmse": 0.916,
+          "m3_mse": 0.8391,
+          "m4_rmse": 0.873,
+          "m4_mse": 0.7622,
+          "m5_rmse": 0.9102,
+          "m5_mse": 0.8285,
+          "m6_rmse": 0.8735,
+          "m6_mse": 0.763,
+          "delta_mse_m6_minus_clim": -0.8008,
+          "weighted_delta_mse_m6_minus_clim": -0.2669
+        },
+        "transition_february": {
+          "n_months": 8,
+          "weight": 0.0833,
+          "m0_clim_rmse": 0.6696,
+          "m0_clim_mse": 0.4484,
+          "m1_pers_rmse": 1.6624,
+          "m1_pers_mse": 2.7636,
+          "m2_rmse": 1.2119,
+          "m2_mse": 1.4687,
+          "m3_rmse": 1.212,
+          "m3_mse": 1.469,
+          "m4_rmse": 1.2316,
+          "m4_mse": 1.5168,
+          "m5_rmse": 1.2152,
+          "m5_mse": 1.4767,
+          "m6_rmse": 1.2404,
+          "m6_mse": 1.5387,
+          "delta_mse_m6_minus_clim": 1.0903,
+          "weighted_delta_mse_m6_minus_clim": 0.0909
+        },
+        "transition_june": {
+          "n_months": 8,
+          "weight": 0.0833,
+          "m0_clim_rmse": 1.0048,
+          "m0_clim_mse": 1.0095,
+          "m1_pers_rmse": 0.9954,
+          "m1_pers_mse": 0.9908,
+          "m2_rmse": 0.9303,
+          "m2_mse": 0.8655,
+          "m3_rmse": 0.9373,
+          "m3_mse": 0.8785,
+          "m4_rmse": 0.884,
+          "m4_mse": 0.7815,
+          "m5_rmse": 0.9294,
+          "m5_mse": 0.8639,
+          "m6_rmse": 0.8831,
+          "m6_mse": 0.7799,
+          "delta_mse_m6_minus_clim": -0.2296,
+          "weighted_delta_mse_m6_minus_clim": -0.0191
+        }
+      },
+      "scheme_climatological_3part": {
+        "kiremt_monsoon_jjas": {
+          "n_months": 32,
+          "weight": 0.3333,
+          "m0_clim_rmse": 0.677,
+          "m0_clim_mse": 0.4583,
+          "m1_pers_rmse": 0.7147,
+          "m1_pers_mse": 0.5108,
+          "m2_rmse": 0.6131,
+          "m2_mse": 0.3759,
+          "m3_rmse": 0.6142,
+          "m3_mse": 0.3773,
+          "m4_rmse": 0.6216,
+          "m4_mse": 0.3864,
+          "m5_rmse": 0.6115,
+          "m5_mse": 0.3739,
+          "m6_rmse": 0.6143,
+          "m6_mse": 0.3774,
+          "delta_mse_m6_minus_clim": -0.0809,
+          "weighted_delta_mse_m6_minus_clim": -0.027
+        },
+        "belg_rains_mam": {
+          "n_months": 24,
+          "weight": 0.25,
+          "m0_clim_rmse": 0.7679,
+          "m0_clim_mse": 0.5897,
+          "m1_pers_rmse": 0.7081,
+          "m1_pers_mse": 0.5015,
+          "m2_rmse": 0.64,
+          "m2_mse": 0.4096,
+          "m3_rmse": 0.6376,
+          "m3_mse": 0.4066,
+          "m4_rmse": 0.6333,
+          "m4_mse": 0.4011,
+          "m5_rmse": 0.6408,
+          "m5_mse": 0.4106,
+          "m6_rmse": 0.6363,
+          "m6_mse": 0.4049,
+          "delta_mse_m6_minus_clim": -0.1848,
+          "weighted_delta_mse_m6_minus_clim": -0.0462
+        },
+        "bega_dry_ondjf": {
+          "n_months": 40,
+          "weight": 0.4167,
+          "m0_clim_rmse": 1.1579,
+          "m0_clim_mse": 1.3408,
+          "m1_pers_rmse": 1.0935,
+          "m1_pers_mse": 1.1958,
+          "m2_rmse": 0.9789,
+          "m2_mse": 0.9582,
+          "m3_rmse": 0.9824,
+          "m3_mse": 0.9651,
+          "m4_rmse": 0.9556,
+          "m4_mse": 0.9131,
+          "m5_rmse": 0.9789,
+          "m5_mse": 0.9581,
+          "m6_rmse": 0.9582,
+          "m6_mse": 0.9181,
+          "delta_mse_m6_minus_clim": -0.4227,
+          "weighted_delta_mse_m6_minus_clim": -0.1761
+        }
+      }
+    }
+  },
+  "lead_2_month": {
+    "lead_months": 2,
+    "models_ablation": {
+      "m0_climatology": {
+        "rmse": 0.9267,
+        "mse": 0.8588,
+        "mae": 0.7036,
+        "r": null
+      },
+      "m1_persistence": {
+        "rmse": 1.1548,
+        "mse": 1.3335,
+        "mae": 0.8807,
+        "r": 0.2023
+      },
+      "m2_local_climate": {
+        "rmse": 0.9145,
+        "mse": 0.8364,
+        "mae": 0.7234,
+        "r": 0.1981
+      },
+      "m3_pacific_informed": {
+        "rmse": 0.9224,
+        "mse": 0.8508,
+        "mae": 0.7394,
+        "r": 0.1774
+      },
+      "m4_indian_ocean_informed": {
+        "rmse": 0.8968,
+        "mse": 0.8042,
+        "mae": 0.7152,
+        "r": 0.2465
+      },
+      "m5_atlantic_informed": {
+        "rmse": 0.9133,
+        "mse": 0.834,
+        "mae": 0.7215,
+        "r": 0.2036
+      },
+      "m6_all_three_oceans": {
+        "rmse": 0.8989,
+        "mse": 0.808,
+        "mae": 0.728,
+        "r": 0.2443
+      }
+    },
+    "paired_year_block_bootstrap": {
+      "m1_persistence_vs_climatology": {
+        "point_dRMSE": 0.2281,
+        "ci95_year_block": [
+          0.0686,
+          0.3713
+        ],
+        "prob_non_improvement": 0.9965,
+        "p_twosided": 0.007
+      },
+      "m2_local_climate_vs_climatology": {
+        "point_dRMSE": -0.0122,
+        "ci95_year_block": [
+          -0.0665,
+          0.0408
+        ],
+        "prob_non_improvement": 0.323,
+        "p_twosided": 0.646
+      },
+      "m3_pacific_informed_vs_climatology": {
+        "point_dRMSE": -0.0043,
+        "ci95_year_block": [
+          -0.05,
+          0.0463
+        ],
+        "prob_non_improvement": 0.415,
+        "p_twosided": 0.83
+      },
+      "m4_indian_ocean_informed_vs_climatology": {
+        "point_dRMSE": -0.0299,
+        "ci95_year_block": [
+          -0.0765,
+          0.0239
+        ],
+        "prob_non_improvement": 0.1305,
+        "p_twosided": 0.261
+      },
+      "m5_atlantic_informed_vs_climatology": {
+        "point_dRMSE": -0.0134,
+        "ci95_year_block": [
+          -0.0697,
+          0.0409
+        ],
+        "prob_non_improvement": 0.3115,
+        "p_twosided": 0.623
+      },
+      "m6_all_three_oceans_vs_climatology": {
+        "point_dRMSE": -0.0278,
+        "ci95_year_block": [
+          -0.0744,
+          0.0268
+        ],
+        "prob_non_improvement": 0.152,
+        "p_twosided": 0.304
+      },
+      "m3_pacific_informed_vs_local_m2": {
+        "point_dRMSE": 0.0079,
+        "ci95_year_block": [
+          -0.0081,
+          0.023
+        ],
+        "prob_non_improvement": 0.8445,
+        "p_twosided": 0.311
+      },
+      "m4_indian_ocean_informed_vs_local_m2": {
+        "point_dRMSE": -0.0177,
+        "ci95_year_block": [
+          -0.0345,
+          -0.0028
+        ],
+        "prob_non_improvement": 0.006,
+        "p_twosided": 0.012
+      },
+      "m5_atlantic_informed_vs_local_m2": {
+        "point_dRMSE": -0.0012,
+        "ci95_year_block": [
+          -0.0041,
+          0.0011
+        ],
+        "prob_non_improvement": 0.1815,
+        "p_twosided": 0.363
+      },
+      "m6_all_three_oceans_vs_local_m2": {
+        "point_dRMSE": -0.0156,
+        "ci95_year_block": [
+          -0.0527,
+          0.012
+        ],
+        "prob_non_improvement": 0.3075,
+        "p_twosided": 0.615
+      }
+    },
+    "seasonal_mse_decompositions": {
+      "scheme_standard_4part": {
+        "kiremt_monsoon_jas": {
+          "n_months": 24,
+          "weight": 0.25,
+          "m0_clim_rmse": 0.524,
+          "m0_clim_mse": 0.2745,
+          "m1_pers_rmse": 0.9108,
+          "m1_pers_mse": 0.8295,
+          "m2_rmse": 0.5725,
+          "m2_mse": 0.3277,
+          "m3_rmse": 0.5741,
+          "m3_mse": 0.3295,
+          "m4_rmse": 0.5932,
+          "m4_mse": 0.3519,
+          "m5_rmse": 0.5658,
+          "m5_mse": 0.3202,
+          "m6_rmse": 0.5792,
+          "m6_mse": 0.3355,
+          "delta_mse_m6_minus_clim": 0.061,
+          "weighted_delta_mse_m6_minus_clim": 0.0152
+        },
+        "belg_rains_mam": {
+          "n_months": 24,
+          "weight": 0.25,
+          "m0_clim_rmse": 0.7679,
+          "m0_clim_mse": 0.5897,
+          "m1_pers_rmse": 1.3181,
+          "m1_pers_mse": 1.7375,
+          "m2_rmse": 0.8555,
+          "m2_mse": 0.7318,
+          "m3_rmse": 0.8553,
+          "m3_mse": 0.7316,
+          "m4_rmse": 0.8602,
+          "m4_mse": 0.7399,
+          "m5_rmse": 0.859,
+          "m5_mse": 0.7379,
+          "m6_rmse": 0.8748,
+          "m6_mse": 0.7653,
+          "delta_mse_m6_minus_clim": 0.1756,
+          "weighted_delta_mse_m6_minus_clim": 0.0439
+        },
+        "bega_dry_ondj": {
+          "n_months": 32,
+          "weight": 0.3333,
+          "m0_clim_rmse": 1.2505,
+          "m0_clim_mse": 1.5638,
+          "m1_pers_rmse": 1.0901,
+          "m1_pers_mse": 1.1883,
+          "m2_rmse": 1.1213,
+          "m2_mse": 1.2572,
+          "m3_rmse": 1.1355,
+          "m3_mse": 1.2894,
+          "m4_rmse": 1.0698,
+          "m4_mse": 1.1444,
+          "m5_rmse": 1.1179,
+          "m5_mse": 1.2496,
+          "m6_rmse": 1.0661,
+          "m6_mse": 1.1366,
+          "delta_mse_m6_minus_clim": -0.4272,
+          "weighted_delta_mse_m6_minus_clim": -0.1424
+        },
+        "transition_february": {
+          "n_months": 8,
+          "weight": 0.0833,
+          "m0_clim_rmse": 0.6696,
+          "m0_clim_mse": 0.4484,
+          "m1_pers_rmse": 1.3738,
+          "m1_pers_mse": 1.8874,
+          "m2_rmse": 0.8248,
+          "m2_mse": 0.6803,
+          "m3_rmse": 0.8288,
+          "m3_mse": 0.6868,
+          "m4_rmse": 0.8625,
+          "m4_mse": 0.7439,
+          "m5_rmse": 0.8284,
+          "m5_mse": 0.6862,
+          "m6_rmse": 0.8827,
+          "m6_mse": 0.7791,
+          "delta_mse_m6_minus_clim": 0.3307,
+          "weighted_delta_mse_m6_minus_clim": 0.0276
+        },
+        "transition_june": {
+          "n_months": 8,
+          "weight": 0.0833,
+          "m0_clim_rmse": 1.0048,
+          "m0_clim_mse": 1.0095,
+          "m1_pers_rmse": 1.2885,
+          "m1_pers_mse": 1.6601,
+          "m2_rmse": 1.0719,
+          "m2_mse": 1.1489,
+          "m3_rmse": 1.087,
+          "m3_mse": 1.1816,
+          "m4_rmse": 1.0265,
+          "m4_mse": 1.0537,
+          "m5_rmse": 1.072,
+          "m5_mse": 1.1493,
+          "m6_rmse": 1.0338,
+          "m6_mse": 1.0687,
+          "delta_mse_m6_minus_clim": 0.0592,
+          "weighted_delta_mse_m6_minus_clim": 0.0049
+        }
+      },
+      "scheme_climatological_3part": {
+        "kiremt_monsoon_jjas": {
+          "n_months": 32,
+          "weight": 0.3333,
+          "m0_clim_rmse": 0.677,
+          "m0_clim_mse": 0.4583,
+          "m1_pers_rmse": 1.0184,
+          "m1_pers_mse": 1.0372,
+          "m2_rmse": 0.7301,
+          "m2_mse": 0.533,
+          "m3_rmse": 0.7366,
+          "m3_mse": 0.5425,
+          "m4_rmse": 0.7262,
+          "m4_mse": 0.5274,
+          "m5_rmse": 0.7263,
+          "m5_mse": 0.5275,
+          "m6_rmse": 0.7202,
+          "m6_mse": 0.5188,
+          "delta_mse_m6_minus_clim": 0.0605,
+          "weighted_delta_mse_m6_minus_clim": 0.0202
+        },
+        "belg_rains_mam": {
+          "n_months": 24,
+          "weight": 0.25,
+          "m0_clim_rmse": 0.7679,
+          "m0_clim_mse": 0.5897,
+          "m1_pers_rmse": 1.3181,
+          "m1_pers_mse": 1.7375,
+          "m2_rmse": 0.8555,
+          "m2_mse": 0.7318,
+          "m3_rmse": 0.8553,
+          "m3_mse": 0.7316,
+          "m4_rmse": 0.8602,
+          "m4_mse": 0.7399,
+          "m5_rmse": 0.859,
+          "m5_mse": 0.7379,
+          "m6_rmse": 0.8748,
+          "m6_mse": 0.7653,
+          "delta_mse_m6_minus_clim": 0.1756,
+          "weighted_delta_mse_m6_minus_clim": 0.0439
+        },
+        "bega_dry_ondjf": {
+          "n_months": 40,
+          "weight": 0.4167,
+          "m0_clim_rmse": 1.1579,
+          "m0_clim_mse": 1.3408,
+          "m1_pers_rmse": 1.1524,
+          "m1_pers_mse": 1.3281,
+          "m2_rmse": 1.0686,
+          "m2_mse": 1.1418,
+          "m3_rmse": 1.0811,
+          "m3_mse": 1.1689,
+          "m4_rmse": 1.0317,
+          "m4_mse": 1.0643,
+          "m5_rmse": 1.0663,
+          "m5_mse": 1.137,
+          "m6_rmse": 1.032,
+          "m6_mse": 1.0651,
+          "delta_mse_m6_minus_clim": -0.2757,
+          "weighted_delta_mse_m6_minus_clim": -0.1149
+        }
+      }
+    }
+  },
+  "lead_3_month": {
+    "lead_months": 3,
+    "models_ablation": {
+      "m0_climatology": {
+        "rmse": 0.9267,
+        "mse": 0.8588,
+        "mae": 0.7036,
+        "r": null
+      },
+      "m1_persistence": {
+        "rmse": 1.3693,
+        "mse": 1.8751,
+        "mae": 1.0512,
+        "r": -0.1268
+      },
+      "m2_local_climate": {
+        "rmse": 0.9376,
+        "mse": 0.8791,
+        "mae": 0.7148,
+        "r": -0.1431
+      },
+      "m3_pacific_informed": {
+        "rmse": 0.952,
+        "mse": 0.9063,
+        "mae": 0.7375,
+        "r": -0.1795
+      },
+      "m4_indian_ocean_informed": {
+        "rmse": 0.922,
+        "mse": 0.8501,
+        "mae": 0.7112,
+        "r": 0.0401
+      },
+      "m5_atlantic_informed": {
+        "rmse": 0.9331,
+        "mse": 0.8708,
+        "mae": 0.7108,
+        "r": -0.0461
+      },
+      "m6_all_three_oceans": {
+        "rmse": 0.9282,
+        "mse": 0.8616,
+        "mae": 0.7321,
+        "r": 0.021
+      }
+    },
+    "paired_year_block_bootstrap": {
+      "m1_persistence_vs_climatology": {
+        "point_dRMSE": 0.4426,
+        "ci95_year_block": [
+          0.2199,
+          0.6567
+        ],
+        "prob_non_improvement": 1.0,
+        "p_twosided": 0.0
+      },
+      "m2_local_climate_vs_climatology": {
+        "point_dRMSE": 0.0109,
+        "ci95_year_block": [
+          -0.0026,
+          0.022
+        ],
+        "prob_non_improvement": 0.947,
+        "p_twosided": 0.106
+      },
+      "m3_pacific_informed_vs_climatology": {
+        "point_dRMSE": 0.0253,
+        "ci95_year_block": [
+          0.0027,
+          0.0458
+        ],
+        "prob_non_improvement": 0.9875,
+        "p_twosided": 0.025
+      },
+      "m4_indian_ocean_informed_vs_climatology": {
+        "point_dRMSE": -0.0047,
+        "ci95_year_block": [
+          -0.0203,
+          0.013
+        ],
+        "prob_non_improvement": 0.292,
+        "p_twosided": 0.584
+      },
+      "m5_atlantic_informed_vs_climatology": {
+        "point_dRMSE": 0.0064,
+        "ci95_year_block": [
+          -0.0122,
+          0.0216
+        ],
+        "prob_non_improvement": 0.7835,
+        "p_twosided": 0.433
+      },
+      "m6_all_three_oceans_vs_climatology": {
+        "point_dRMSE": 0.0015,
+        "ci95_year_block": [
+          -0.0404,
+          0.0344
+        ],
+        "prob_non_improvement": 0.578,
+        "p_twosided": 0.844
+      },
+      "m3_pacific_informed_vs_local_m2": {
+        "point_dRMSE": 0.0144,
+        "ci95_year_block": [
+          -0.0102,
+          0.0382
+        ],
+        "prob_non_improvement": 0.883,
+        "p_twosided": 0.234
+      },
+      "m4_indian_ocean_informed_vs_local_m2": {
+        "point_dRMSE": -0.0156,
+        "ci95_year_block": [
+          -0.0292,
+          -0.0017
+        ],
+        "prob_non_improvement": 0.0135,
+        "p_twosided": 0.027
+      },
+      "m5_atlantic_informed_vs_local_m2": {
+        "point_dRMSE": -0.0045,
+        "ci95_year_block": [
+          -0.0125,
+          0.0033
+        ],
+        "prob_non_improvement": 0.1255,
+        "p_twosided": 0.251
+      },
+      "m6_all_three_oceans_vs_local_m2": {
+        "point_dRMSE": -0.0094,
+        "ci95_year_block": [
+          -0.0532,
+          0.0256
+        ],
+        "prob_non_improvement": 0.359,
+        "p_twosided": 0.718
+      }
+    },
+    "seasonal_mse_decompositions": {
+      "scheme_standard_4part": {
+        "kiremt_monsoon_jas": {
+          "n_months": 24,
+          "weight": 0.25,
+          "m0_clim_rmse": 0.524,
+          "m0_clim_mse": 0.2745,
+          "m1_pers_rmse": 1.1228,
+          "m1_pers_mse": 1.2606,
+          "m2_rmse": 0.5512,
+          "m2_mse": 0.3039,
+          "m3_rmse": 0.5539,
+          "m3_mse": 0.3068,
+          "m4_rmse": 0.5532,
+          "m4_mse": 0.306,
+          "m5_rmse": 0.5386,
+          "m5_mse": 0.2901,
+          "m6_rmse": 0.5364,
+          "m6_mse": 0.2877,
+          "delta_mse_m6_minus_clim": 0.0132,
+          "weighted_delta_mse_m6_minus_clim": 0.0033
+        },
+        "belg_rains_mam": {
+          "n_months": 24,
+          "weight": 0.25,
+          "m0_clim_rmse": 0.7679,
+          "m0_clim_mse": 0.5897,
+          "m1_pers_rmse": 1.377,
+          "m1_pers_mse": 1.8961,
+          "m2_rmse": 0.7735,
+          "m2_mse": 0.5983,
+          "m3_rmse": 0.7859,
+          "m3_mse": 0.6176,
+          "m4_rmse": 0.7822,
+          "m4_mse": 0.6118,
+          "m5_rmse": 0.7725,
+          "m5_mse": 0.5968,
+          "m6_rmse": 0.8062,
+          "m6_mse": 0.65,
+          "delta_mse_m6_minus_clim": 0.0603,
+          "weighted_delta_mse_m6_minus_clim": 0.0151
+        },
+        "bega_dry_ondj": {
+          "n_months": 32,
+          "weight": 0.3333,
+          "m0_clim_rmse": 1.2505,
+          "m0_clim_mse": 1.5638,
+          "m1_pers_rmse": 1.3546,
+          "m1_pers_mse": 1.8349,
+          "m2_rmse": 1.2519,
+          "m2_mse": 1.5673,
+          "m3_rmse": 1.274,
+          "m3_mse": 1.6232,
+          "m4_rmse": 1.2099,
+          "m4_mse": 1.4638,
+          "m5_rmse": 1.2443,
+          "m5_mse": 1.5482,
+          "m6_rmse": 1.2073,
+          "m6_mse": 1.4575,
+          "delta_mse_m6_minus_clim": -0.1063,
+          "weighted_delta_mse_m6_minus_clim": -0.0354
+        },
+        "transition_february": {
+          "n_months": 8,
+          "weight": 0.0833,
+          "m0_clim_rmse": 0.6696,
+          "m0_clim_mse": 0.4484,
+          "m1_pers_rmse": 1.6301,
+          "m1_pers_mse": 2.6574,
+          "m2_rmse": 0.6872,
+          "m2_mse": 0.4722,
+          "m3_rmse": 0.6884,
+          "m3_mse": 0.4738,
+          "m4_rmse": 0.7472,
+          "m4_mse": 0.5583,
+          "m5_rmse": 0.6971,
+          "m5_mse": 0.486,
+          "m6_rmse": 0.7935,
+          "m6_mse": 0.6296,
+          "delta_mse_m6_minus_clim": 0.1812,
+          "weighted_delta_mse_m6_minus_clim": 0.0151
+        },
+        "transition_june": {
+          "n_months": 8,
+          "weight": 0.0833,
+          "m0_clim_rmse": 1.0048,
+          "m0_clim_mse": 1.0095,
+          "m1_pers_rmse": 1.7418,
+          "m1_pers_mse": 3.034,
+          "m2_rmse": 1.0493,
+          "m2_mse": 1.1009,
+          "m3_rmse": 1.0657,
+          "m3_mse": 1.1357,
+          "m4_rmse": 1.0168,
+          "m4_mse": 1.0338,
+          "m5_rmse": 1.0535,
+          "m5_mse": 1.1098,
+          "m6_rmse": 1.0327,
+          "m6_mse": 1.0664,
+          "delta_mse_m6_minus_clim": 0.0569,
+          "weighted_delta_mse_m6_minus_clim": 0.0047
+        }
+      },
+      "scheme_climatological_3part": {
+        "kiremt_monsoon_jjas": {
+          "n_months": 32,
+          "weight": 0.3333,
+          "m0_clim_rmse": 0.677,
+          "m0_clim_mse": 0.4583,
+          "m1_pers_rmse": 1.3054,
+          "m1_pers_mse": 1.7039,
+          "m2_rmse": 0.7093,
+          "m2_mse": 0.5031,
+          "m3_rmse": 0.717,
+          "m3_mse": 0.514,
+          "m4_rmse": 0.6985,
+          "m4_mse": 0.4879,
+          "m5_rmse": 0.7036,
+          "m5_mse": 0.495,
+          "m6_rmse": 0.6945,
+          "m6_mse": 0.4824,
+          "delta_mse_m6_minus_clim": 0.0241,
+          "weighted_delta_mse_m6_minus_clim": 0.008
+        },
+        "belg_rains_mam": {
+          "n_months": 24,
+          "weight": 0.25,
+          "m0_clim_rmse": 0.7679,
+          "m0_clim_mse": 0.5897,
+          "m1_pers_rmse": 1.377,
+          "m1_pers_mse": 1.8961,
+          "m2_rmse": 0.7735,
+          "m2_mse": 0.5983,
+          "m3_rmse": 0.7859,
+          "m3_mse": 0.6176,
+          "m4_rmse": 0.7822,
+          "m4_mse": 0.6118,
+          "m5_rmse": 0.7725,
+          "m5_mse": 0.5968,
+          "m6_rmse": 0.8062,
+          "m6_mse": 0.65,
+          "delta_mse_m6_minus_clim": 0.0603,
+          "weighted_delta_mse_m6_minus_clim": 0.0151
+        },
+        "bega_dry_ondjf": {
+          "n_months": 40,
+          "weight": 0.4167,
+          "m0_clim_rmse": 1.1579,
+          "m0_clim_mse": 1.3408,
+          "m1_pers_rmse": 1.414,
+          "m1_pers_mse": 1.9994,
+          "m2_rmse": 1.1612,
+          "m2_mse": 1.3483,
+          "m3_rmse": 1.1804,
+          "m3_mse": 1.3933,
+          "m4_rmse": 1.1326,
+          "m4_mse": 1.2827,
+          "m5_rmse": 1.1557,
+          "m5_mse": 1.3357,
+          "m6_rmse": 1.1366,
+          "m6_mse": 1.2919,
+          "delta_mse_m6_minus_clim": -0.0489,
+          "weighted_delta_mse_m6_minus_clim": -0.0204
+        }
+      }
+    }
+  }
+}
