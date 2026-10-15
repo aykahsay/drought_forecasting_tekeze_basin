@@ -1,0 +1,80 @@
+{
+  "lead_1_month": {
+    "lead_months": 1,
+    "test_months_evaluated": 98,
+    "climatology_baseline": {
+      "rmse": 0.6284,
+      "mae": 0.585,
+      "pearson_r": NaN
+    },
+    "persistence_baseline": {
+      "rmse": 0.0268,
+      "mae": 0.0215,
+      "pearson_r": 0.9939
+    },
+    "local_climate_only": {
+      "rmse": 0.0267,
+      "mae": 0.0214,
+      "pearson_r": 0.9939
+    },
+    "multi_ocean_informed": {
+      "rmse": 0.0285,
+      "mae": 0.0247,
+      "pearson_r": 0.9928
+    },
+    "skill_gain_vs_persistence_pct": -6.34,
+    "skill_gain_vs_local_only_pct": -6.74
+  },
+  "lead_2_month": {
+    "lead_months": 2,
+    "test_months_evaluated": 97,
+    "climatology_baseline": {
+      "rmse": 0.6238,
+      "mae": 0.5809,
+      "pearson_r": NaN
+    },
+    "persistence_baseline": {
+      "rmse": 0.034,
+      "mae": 0.0275,
+      "pearson_r": 0.9915
+    },
+    "local_climate_only": {
+      "rmse": 0.0336,
+      "mae": 0.0273,
+      "pearson_r": 0.9915
+    },
+    "multi_ocean_informed": {
+      "rmse": 0.0334,
+      "mae": 0.0272,
+      "pearson_r": 0.99
+    },
+    "skill_gain_vs_persistence_pct": 1.76,
+    "skill_gain_vs_local_only_pct": 0.6
+  },
+  "lead_3_month": {
+    "lead_months": 3,
+    "test_months_evaluated": 96,
+    "climatology_baseline": {
+      "rmse": 0.6194,
+      "mae": 0.577,
+      "pearson_r": NaN
+    },
+    "persistence_baseline": {
+      "rmse": 0.0379,
+      "mae": 0.0332,
+      "pearson_r": 0.9916
+    },
+    "local_climate_only": {
+      "rmse": 0.037,
+      "mae": 0.0323,
+      "pearson_r": 0.9916
+    },
+    "multi_ocean_informed": {
+      "rmse": 0.0368,
+      "mae": 0.0301,
+      "pearson_r": 0.9903
+    },
+    "skill_gain_vs_persistence_pct": 2.9,
+    "skill_gain_vs_local_only_pct": 0.54
+  }
+}
