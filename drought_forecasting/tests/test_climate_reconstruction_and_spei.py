@@ -256,13 +256,13 @@ def test_gate1_real_cpc_temperature_extraction():
 
 def test_gate1_synthetic_fallback_strictly_disabled():
     """Verify Gate 1: pipeline FAILS EXPLICITLY if raw observations are absent (zero silent heuristics)."""
-    # 1996 raw files have not been downloaded yet; requesting 1996 without fallback flag MUST raise MissingTemperatureDataError
+    # 1975 raw files do not exist (CPC record begins in 1979/1981); requesting 1975 without fallback flag MUST raise MissingTemperatureDataError
     with pytest.raises(MissingTemperatureDataError, match="Synthetic heuristic fallback is strictly disabled"):
-        get_verified_monthly_temperature(1996, 7, allow_synthetic_fallback=False)
+        get_verified_monthly_temperature(1975, 7, allow_synthetic_fallback=False)
 
     # Isolated test-only mode still operates when explicitly requested
     with pytest.warns(UserWarning, match="PROVISIONAL_HEURISTIC_MODEL"):
-        t_max_h, t_min_h, t_mean_h = get_verified_monthly_temperature(1996, 7, allow_synthetic_fallback=True)
+        t_max_h, t_min_h, t_mean_h = get_verified_monthly_temperature(1975, 7, allow_synthetic_fallback=True)
     assert t_min_h < t_max_h
     assert 5.0 <= t_mean_h <= 35.0
 

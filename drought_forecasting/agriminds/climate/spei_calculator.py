@@ -267,6 +267,163 @@ def calculate_hargreaves_pet(
     return max(0.0, pet_day * days_in_month)
 
 
+def calculate_fao56_penman_monteith_daily_et0(
+    t_max_c: float,
+    t_min_c: float,
+    latitude_deg: float,
+    day_of_year: int,
+    elevation_m: float = 1450.0,
+    wind_speed_2m_m_s: float = 2.0,
+    solar_radiation_rs_mj: Optional[float] = None,
+    t_dew_c: Optional[float] = None,
+    rh_mean_pct: Optional[float] = None,
+    k_rs: float = 0.16
+) -> float:
+    """
+    Calculates daily Reference Evapotranspiration (ET_0) in mm/day using the standard
+    FAO-56 Penman-Monteith formulation (Allen et al. 1998, FAO Irrigation and Drainage Paper 56).
+
+    Formulas:
+        ET_0 = [0.408 * Delta * (R_n - G) + gamma * (900 / (T_mean + 273)) * u_2 * (e_s - e_a)] /
+               [Delta + gamma * (1 + 0.34 * u_2)]
+
+    Components:
+        1. Saturation Vapour Pressure (e_s): Mean of e°(T_max) and e°(T_min).
+        2. Actual Vapour Pressure (e_a): Derived from t_dew_c, rh_mean_pct, or standard
+           semi-arid temperature-dewpoint adjustment (T_dew ≈ T_min - 2.0°C).
+        3. Net Shortwave Radiation (R_ns): (1 - alpha) * R_s, with albedo alpha = 0.23.
+        4. Net Longwave Radiation (R_nl): Stefan-Boltzmann radiation with cloudiness and vapour correction.
+        5. Psychrometric Constant (gamma): gamma = 0.000665 * P_atm.
+        6. Soil Heat Flux (G): G ≈ 0 for daily time steps.
+
+    Args:
+        t_max_c: Daily maximum 2m air temperature (°C).
+        t_min_c: Daily minimum 2m air temperature (°C).
+        latitude_deg: Latitude in decimal degrees (positive North).
+        day_of_year: Julian day of year (1 to 366).
+        elevation_m: Station/polygon elevation above sea level in meters (default 1,450m for Tanqua Abergele).
+        wind_speed_2m_m_s: Wind speed at 2m height in m/s (default 2.0 m/s standard FAO semi-arid default).
+        solar_radiation_rs_mj: Optional observed/reanalysis solar radiation in MJ m^-2 day^-1.
+        t_dew_c: Optional dewpoint temperature in °C.
+        rh_mean_pct: Optional relative humidity percentage (0-100%).
+        k_rs: Hargreaves radiation adjustment coefficient (0.16 for interior, 0.19 for coastal).
+
+    Returns:
+        Daily ET_0 in mm/day, or float("nan") if inputs are non-finite or invalid.
+    """
+    if not (math.isfinite(t_max_c) and math.isfinite(t_min_c)):
+        return float("nan")
+    if t_max_c < t_min_c or not (-60.0 <= t_min_c <= 60.0 and -60.0 <= t_max_c <= 65.0):
+        return float("nan")
+    if not (1 <= day_of_year <= 366) or not (-90.0 <= latitude_deg <= 90.0):
+        return float("nan")
+
+    t_mean = (t_max_c + t_min_c) / 2.0
+
+    # Atmospheric pressure P_atm (kPa) - FAO-56 Eq. 7
+    p_atm = 101.3 * (((293.0 - 0.0065 * elevation_m) / 293.0) ** 5.26)
+    # Psychrometric constant gamma (kPa/°C) - FAO-56 Eq. 8
+    gamma = 0.000665 * p_atm
+
+    # Slope of saturation vapour pressure curve Delta (kPa/°C) - FAO-56 Eq. 13
+    delta = (4098.0 * (0.6108 * math.exp((17.27 * t_mean) / (t_mean + 237.3)))) / ((t_mean + 237.3) ** 2)
+
+    # Saturation vapour pressure e_s (kPa) - FAO-56 Eq. 11-12
+    e_tmax = 0.6108 * math.exp((17.27 * t_max_c) / (t_max_c + 237.3))
+    e_tmin = 0.6108 * math.exp((17.27 * t_min_c) / (t_min_c + 237.3))
+    es = (e_tmax + e_tmin) / 2.0
+
+    # Actual vapour pressure e_a (kPa) - FAO-56 Eq. 14, 17, 48
+    if t_dew_c is not None and math.isfinite(t_dew_c):
+        ea = 0.6108 * math.exp((17.27 * t_dew_c) / (t_dew_c + 237.3))
+    elif rh_mean_pct is not None and math.isfinite(rh_mean_pct):
+        ea = es * max(0.01, min(1.0, rh_mean_pct / 100.0))
+    else:
+        # Standard semi-arid dewpoint approximation: in arid/semi-arid highlands, T_dew is lower than T_min
+        eff_tdew = t_min_c - 2.0
+        ea = 0.6108 * math.exp((17.27 * eff_tdew) / (eff_tdew + 237.3))
+    ea = min(ea, es)  # e_a cannot exceed saturation e_s
+
+    # Extraterrestrial solar radiation Ra (MJ m^-2 day^-1)
+    month = min(12, max(1, int(day_of_year / 30.5) + 1))
+    ra_mj = calculate_extraterrestrial_radiation_ra(
+        latitude_deg, month=month, days_in_month=30, day_of_year=day_of_year, return_energy_units=True
+    )
+    if not math.isfinite(ra_mj) or ra_mj <= 0.0:
+        return float("nan")
+
+    # Solar radiation R_s (MJ m^-2 day^-1)
+    if solar_radiation_rs_mj is not None and math.isfinite(solar_radiation_rs_mj) and solar_radiation_rs_mj > 0.0:
+        rs = float(solar_radiation_rs_mj)
+    else:
+        # Hargreaves-Allen solar radiation formula (FAO-56 Eq. 50)
+        dtr = max(0.0, t_max_c - t_min_c)
+        rs = k_rs * math.sqrt(dtr) * ra_mj
+
+    # Clear-sky solar radiation R_so (MJ m^-2 day^-1) - FAO-56 Eq. 37
+    rso = (0.75 + (2e-5 * elevation_m)) * ra_mj
+    rs = min(rs, rso)  # R_s capped by clear-sky R_so
+
+    # Net shortwave radiation R_ns (MJ m^-2 day^-1) - FAO-56 Eq. 38 (alpha = 0.23)
+    rns = (1.0 - 0.23) * rs
+
+    # Net longwave radiation R_nl (MJ m^-2 day^-1) - FAO-56 Eq. 39
+    sigma = 4.903e-9  # Stefan-Boltzmann constant in MJ K^-4 m^-2 day^-1
+    tmax_k4 = (t_max_c + 273.16) ** 4
+    tmin_k4 = (t_min_c + 273.16) ** 4
+    f_cd = max(0.05, min(1.0, 1.35 * (rs / max(rso, 1e-4)) - 0.35))
+    f_ea = max(0.05, 0.34 - (0.14 * math.sqrt(max(0.0, ea))))
+    rnl = sigma * ((tmax_k4 + tmin_k4) / 2.0) * f_ea * f_cd
+
+    # Net radiation R_n (MJ m^-2 day^-1) - FAO-56 Eq. 40
+    rn = rns - rnl
+
+    # Soil heat flux G = 0 for daily calculation - FAO-56 Eq. 42
+    g = 0.0
+
+    # FAO-56 Penman-Monteith (mm/day)
+    u2 = max(0.2, wind_speed_2m_m_s)
+    num = 0.408 * delta * (rn - g) + gamma * (900.0 / (t_mean + 273.0)) * u2 * (es - ea)
+    den = delta + gamma * (1.0 + 0.34 * u2)
+    et0 = num / den
+
+    return max(0.0, float(et0))
+
+
+def calculate_fao56_penman_monteith_monthly_et0(
+    t_max_c: float,
+    t_min_c: float,
+    t_mean_c: float,
+    latitude_deg: float,
+    month: int,
+    days_in_month: int,
+    elevation_m: float = 1450.0,
+    wind_speed_2m_m_s: float = 2.0,
+    solar_radiation_rs_mj: Optional[float] = None,
+    t_dew_c: Optional[float] = None,
+    k_rs: float = 0.16
+) -> float:
+    """
+    Computes monthly Reference Evapotranspiration (ET_0) in mm/month from monthly average
+    temperatures and parameters using the FAO-56 Penman-Monteith formulation.
+    """
+    mid_day = [15, 45, 74, 105, 135, 165, 196, 227, 258, 288, 319, 349][month - 1]
+    daily_et0 = calculate_fao56_penman_monteith_daily_et0(
+        t_max_c=t_max_c,
+        t_min_c=t_min_c,
+        latitude_deg=latitude_deg,
+        day_of_year=mid_day,
+        elevation_m=elevation_m,
+        wind_speed_2m_m_s=wind_speed_2m_m_s,
+        solar_radiation_rs_mj=solar_radiation_rs_mj,
+        t_dew_c=t_dew_c,
+        k_rs=k_rs
+    )
+    if not math.isfinite(daily_et0):
+        return float("nan")
+    return float(daily_et0 * days_in_month)
+
+
 def calculate_thornthwaite_monthly_pet(
     monthly_t_mean: List[float],
     latitude_deg: float
