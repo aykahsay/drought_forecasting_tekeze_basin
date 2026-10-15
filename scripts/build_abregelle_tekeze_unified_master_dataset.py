@@ -267,8 +267,17 @@ def build_unified_abregelle_dataset() -> pd.DataFrame:
     )
 
     # 6. Local Rainfall (Combining CHIRPS and ERA5-Land reanalysis comparison)
-    # Using era5_precip_mm as continuous baseline, with CHIRPS comparison
-    df_master["precip_analysis_mm"] = df_master["era5_precip_mm"]
+    chirps_csv = PROCESSED_DIR / "chirps_monthly_precipitation_tekeze_abregelle.csv"
+    if chirps_csv.exists():
+        df_chirps = pd.read_csv(chirps_csv)
+        chirps_cols = ["ym", "chirps_abregelle_precip_mm", "chirps_tekeze_precip_mm"]
+        df_master = pd.merge(df_master, df_chirps[chirps_cols], on="ym", how="left")
+    else:
+        df_master["chirps_abregelle_precip_mm"] = np.nan
+        df_master["chirps_tekeze_precip_mm"] = np.nan
+
+    # Prefer verified CHIRPS precipitation, falling back to ERA5-Land reanalysis where pending
+    df_master["precip_analysis_mm"] = df_master["chirps_abregelle_precip_mm"].combine_first(df_master["era5_precip_mm"])
     df_master["climatic_water_balance_mm"] = df_master["precip_analysis_mm"] - df_master["pet_hargreaves_mm"]
 
     # 7. Compute Standardized Drought Targets (SPI-3 and SPEI-3)

@@ -19,6 +19,8 @@ import hashlib
 import json
 import os
 import sys
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 import time
 import urllib.request
 from datetime import datetime, timezone
@@ -186,7 +188,8 @@ def batch_download_missing_chirps(
     start_year: int = 1981,
     end_year: int = 2024,
     limit: Optional[int] = None,
-    dry_run: bool = False
+    dry_run: bool = False,
+    workers: int = 6
 ) -> Dict[str, Any]:
     """Runs batch download for all missing monthly files."""
     audit = audit_existing_chirps_files(RAW_CHIRPS_DIR, start_year, end_year)
@@ -202,18 +205,23 @@ def batch_download_missing_chirps(
         return audit
 
     to_download = missing[:limit] if limit else missing
-    print(f"Commencing download of {len(to_download)} files...")
+    print(f"Commencing download of {len(to_download)} files with {workers} parallel worker threads...")
 
+    import concurrent.futures
     results = []
-    for idx, (year, month, filename) in enumerate(to_download, 1):
-        print(f"[{idx}/{len(to_download)}] Downloading {filename} (Year {year}, Month {month:02d})...")
+
+    def _worker_task(item):
+        year, month, filename = item
         try:
             res = download_single_chirps_file(year, month, filename)
-            print(f"  -> Ingested: {res['size_bytes']:,} bytes, SHA-256: {res['sha256'][:12]}...")
-            results.append(res)
+            print(f"  [OK] Ingested: {filename} ({res['size_bytes']:,} bytes)")
+            return res
         except Exception as e:
-            print(f"  -> ERROR downloading {filename}: {e}")
-            results.append({"year": year, "month": month, "filename": filename, "status": "FAILED", "error": str(e)})
+            print(f"  [!] ERROR downloading {filename}: {e}")
+            return {"year": year, "month": month, "filename": filename, "status": "FAILED", "error": str(e)}
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+        results = list(executor.map(_worker_task, to_download))
 
     return {
         "audit": audit,
@@ -262,6 +270,7 @@ def main():
     parser.add_argument("--start-year", type=int, default=1981, help="Start year (default 1981)")
     parser.add_argument("--end-year", type=int, default=2024, help="End year (default 2024)")
     parser.add_argument("--limit", type=int, default=None, help="Limit number of files to download in this run")
+    parser.add_argument("--workers", type=int, default=6, help="Parallel download worker threads (default 6)")
     parser.add_argument("--dry-run", action="store_true", help="Audit local holdings without downloading")
     parser.add_argument("--index-existing", action="store_true", help="Compute SHA-256 and index all existing files")
     args = parser.parse_args()
@@ -273,7 +282,8 @@ def main():
         start_year=args.start_year,
         end_year=args.end_year,
         limit=args.limit,
-        dry_run=args.dry_run
+        dry_run=args.dry_run,
+        workers=args.workers
     )
 
 
