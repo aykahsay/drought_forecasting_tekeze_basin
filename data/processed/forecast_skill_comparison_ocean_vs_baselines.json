@@ -4,83 +4,314 @@
     "target_variable": "spi3 (Abregelle 3-month Standardized Precipitation Index)",
     "evaluation_window": "2016-01 to 2023-12",
     "test_months_evaluated": 96,
-    "climatology_baseline": {
-      "rmse": 0.8705,
-      "mae": 0.6756,
-      "pearson_r": null
+    "models": {
+      "climatology_baseline": {
+        "rmse": 0.9267,
+        "mae": 0.7036,
+        "pearson_r": null
+      },
+      "persistence_baseline": {
+        "rmse": 0.891,
+        "mae": 0.6599,
+        "pearson_r": 0.5251
+      },
+      "local_climate_only": {
+        "rmse": 0.7918,
+        "mae": 0.5803,
+        "pearson_r": 0.5242
+      },
+      "multi_ocean_informed": {
+        "rmse": 0.7808,
+        "mae": 0.5835,
+        "pearson_r": 0.5407
+      }
     },
-    "persistence_baseline": {
-      "rmse": 0.8391,
-      "mae": 0.6253,
-      "pearson_r": 0.5278
+    "uncertainty_block_bootstrap": {
+      "resamples": 2000,
+      "block_length_months": 6,
+      "dRMSE_ocean_minus_clim": -0.146,
+      "ci95_ocean_minus_clim": [
+        -0.2671,
+        -0.0183
+      ],
+      "p_value_ocean_beats_clim": 0.0145,
+      "dRMSE_ocean_minus_pers": -0.1103,
+      "ci95_ocean_minus_pers": [
+        -0.1635,
+        -0.0561
+      ],
+      "p_value_ocean_beats_pers": 0.0,
+      "dRMSE_ocean_minus_local": -0.0111,
+      "ci95_ocean_minus_local": [
+        -0.0314,
+        0.0084
+      ],
+      "p_value_ocean_beats_local": 0.1955
     },
-    "local_climate_only": {
-      "rmse": 0.7527,
-      "mae": 0.5621,
-      "pearson_r": 0.5178
+    "skill_comparisons_pct": {
+      "error_reduction_vs_climatology_pct": 15.75,
+      "error_reduction_vs_persistence_pct": 12.37,
+      "error_reduction_vs_local_pct": 1.4
     },
-    "multi_ocean_informed": {
-      "rmse": 0.7417,
-      "mae": 0.5618,
-      "pearson_r": 0.534
-    },
-    "skill_gain_vs_persistence_pct": 11.61,
-    "skill_gain_vs_local_only_pct": 1.46
+    "seasonal_breakdown": {
+      "all_months": {
+        "n_months": 96,
+        "climatology_rmse": 0.9267,
+        "persistence_rmse": 0.891,
+        "persistence_r": 0.5251,
+        "local_ar_rmse": 0.7918,
+        "local_ar_r": 0.5242,
+        "multi_ocean_rmse": 0.7808,
+        "multi_ocean_r": 0.5407,
+        "ocean_vs_local_pct": 1.4,
+        "ocean_vs_clim_pct": 15.75
+      },
+      "kiremt_monsoon": {
+        "n_months": 24,
+        "climatology_rmse": 0.524,
+        "persistence_rmse": 0.5923,
+        "persistence_r": 0.342,
+        "local_ar_rmse": 0.4612,
+        "local_ar_r": 0.3437,
+        "multi_ocean_rmse": 0.4931,
+        "multi_ocean_r": 0.3081,
+        "ocean_vs_local_pct": -6.92,
+        "ocean_vs_clim_pct": 5.89
+      },
+      "belg_rains": {
+        "n_months": 24,
+        "climatology_rmse": 0.7679,
+        "persistence_rmse": 0.7081,
+        "persistence_r": 0.3811,
+        "local_ar_rmse": 0.64,
+        "local_ar_r": 0.3815,
+        "multi_ocean_rmse": 0.6363,
+        "multi_ocean_r": 0.4071,
+        "ocean_vs_local_pct": 0.58,
+        "ocean_vs_clim_pct": 17.14
+      },
+      "bega_dry": {
+        "n_months": 32,
+        "climatology_rmse": 1.2505,
+        "persistence_rmse": 0.8966,
+        "persistence_r": 0.6731,
+        "local_ar_rmse": 0.9113,
+        "local_ar_r": 0.6721,
+        "multi_ocean_rmse": 0.8735,
+        "multi_ocean_r": 0.7031,
+        "ocean_vs_local_pct": 4.15,
+        "ocean_vs_clim_pct": 30.15
+      }
+    }
   },
   "lead_2_month": {
     "lead_months": 2,
     "target_variable": "spi3 (Abregelle 3-month Standardized Precipitation Index)",
     "evaluation_window": "2016-01 to 2023-12",
     "test_months_evaluated": 96,
-    "climatology_baseline": {
-      "rmse": 0.8705,
-      "mae": 0.6756,
-      "pearson_r": null
+    "models": {
+      "climatology_baseline": {
+        "rmse": 0.9267,
+        "mae": 0.7036,
+        "pearson_r": null
+      },
+      "persistence_baseline": {
+        "rmse": 1.1548,
+        "mae": 0.8807,
+        "pearson_r": 0.2023
+      },
+      "local_climate_only": {
+        "rmse": 0.9145,
+        "mae": 0.7234,
+        "pearson_r": 0.1981
+      },
+      "multi_ocean_informed": {
+        "rmse": 0.8989,
+        "mae": 0.728,
+        "pearson_r": 0.2443
+      }
     },
-    "persistence_baseline": {
-      "rmse": 1.0941,
-      "mae": 0.8417,
-      "pearson_r": 0.197
+    "uncertainty_block_bootstrap": {
+      "resamples": 2000,
+      "block_length_months": 6,
+      "dRMSE_ocean_minus_clim": -0.0278,
+      "ci95_ocean_minus_clim": [
+        -0.1199,
+        0.0604
+      ],
+      "p_value_ocean_beats_clim": 0.312,
+      "dRMSE_ocean_minus_pers": -0.2558,
+      "ci95_ocean_minus_pers": [
+        -0.3868,
+        -0.1373
+      ],
+      "p_value_ocean_beats_pers": 0.0,
+      "dRMSE_ocean_minus_local": -0.0156,
+      "ci95_ocean_minus_local": [
+        -0.0556,
+        0.0214
+      ],
+      "p_value_ocean_beats_local": 0.296
     },
-    "local_climate_only": {
-      "rmse": 0.8796,
-      "mae": 0.712,
-      "pearson_r": 0.1507
+    "skill_comparisons_pct": {
+      "error_reduction_vs_climatology_pct": 3.0,
+      "error_reduction_vs_persistence_pct": 22.16,
+      "error_reduction_vs_local_pct": 1.71
     },
-    "multi_ocean_informed": {
-      "rmse": 0.865,
-      "mae": 0.7171,
-      "pearson_r": 0.1989
-    },
-    "skill_gain_vs_persistence_pct": 20.94,
-    "skill_gain_vs_local_only_pct": 1.66
+    "seasonal_breakdown": {
+      "all_months": {
+        "n_months": 96,
+        "climatology_rmse": 0.9267,
+        "persistence_rmse": 1.1548,
+        "persistence_r": 0.2023,
+        "local_ar_rmse": 0.9145,
+        "local_ar_r": 0.1981,
+        "multi_ocean_rmse": 0.8989,
+        "multi_ocean_r": 0.2443,
+        "ocean_vs_local_pct": 1.71,
+        "ocean_vs_clim_pct": 3.0
+      },
+      "kiremt_monsoon": {
+        "n_months": 24,
+        "climatology_rmse": 0.524,
+        "persistence_rmse": 0.9108,
+        "persistence_r": -0.224,
+        "local_ar_rmse": 0.5725,
+        "local_ar_r": -0.2194,
+        "multi_ocean_rmse": 0.5792,
+        "multi_ocean_r": -0.1395,
+        "ocean_vs_local_pct": -1.17,
+        "ocean_vs_clim_pct": -10.54
+      },
+      "belg_rains": {
+        "n_months": 24,
+        "climatology_rmse": 0.7679,
+        "persistence_rmse": 1.3181,
+        "persistence_r": -0.1387,
+        "local_ar_rmse": 0.8555,
+        "local_ar_r": -0.1374,
+        "multi_ocean_rmse": 0.8748,
+        "multi_ocean_r": -0.1471,
+        "ocean_vs_local_pct": -2.27,
+        "ocean_vs_clim_pct": -13.92
+      },
+      "bega_dry": {
+        "n_months": 32,
+        "climatology_rmse": 1.2505,
+        "persistence_rmse": 1.0901,
+        "persistence_r": 0.4647,
+        "local_ar_rmse": 1.1213,
+        "local_ar_r": 0.4618,
+        "multi_ocean_rmse": 1.0661,
+        "multi_ocean_r": 0.55,
+        "ocean_vs_local_pct": 4.92,
+        "ocean_vs_clim_pct": 14.75
+      }
+    }
   },
   "lead_3_month": {
     "lead_months": 3,
     "target_variable": "spi3 (Abregelle 3-month Standardized Precipitation Index)",
     "evaluation_window": "2016-01 to 2023-12",
     "test_months_evaluated": 96,
-    "climatology_baseline": {
-      "rmse": 0.8705,
-      "mae": 0.6756,
-      "pearson_r": null
+    "models": {
+      "climatology_baseline": {
+        "rmse": 0.9267,
+        "mae": 0.7036,
+        "pearson_r": null
+      },
+      "persistence_baseline": {
+        "rmse": 1.3693,
+        "mae": 1.0512,
+        "pearson_r": -0.1268
+      },
+      "local_climate_only": {
+        "rmse": 0.9376,
+        "mae": 0.7148,
+        "pearson_r": -0.1431
+      },
+      "multi_ocean_informed": {
+        "rmse": 0.9282,
+        "mae": 0.7321,
+        "pearson_r": 0.021
+      }
     },
-    "persistence_baseline": {
-      "rmse": 1.2858,
-      "mae": 0.9868,
-      "pearson_r": -0.1154
+    "uncertainty_block_bootstrap": {
+      "resamples": 2000,
+      "block_length_months": 6,
+      "dRMSE_ocean_minus_clim": 0.0015,
+      "ci95_ocean_minus_clim": [
+        -0.0502,
+        0.049
+      ],
+      "p_value_ocean_beats_clim": 0.569,
+      "dRMSE_ocean_minus_pers": -0.4411,
+      "ci95_ocean_minus_pers": [
+        -0.6467,
+        -0.2448
+      ],
+      "p_value_ocean_beats_pers": 0.0,
+      "dRMSE_ocean_minus_local": -0.0094,
+      "ci95_ocean_minus_local": [
+        -0.059,
+        0.04
+      ],
+      "p_value_ocean_beats_local": 0.412
     },
-    "local_climate_only": {
-      "rmse": 0.902,
-      "mae": 0.7073,
-      "pearson_r": -0.2753
+    "skill_comparisons_pct": {
+      "error_reduction_vs_climatology_pct": -0.16,
+      "error_reduction_vs_persistence_pct": 32.21,
+      "error_reduction_vs_local_pct": 1.0
     },
-    "multi_ocean_informed": {
-      "rmse": 0.8937,
-      "mae": 0.7173,
-      "pearson_r": -0.0734
-    },
-    "skill_gain_vs_persistence_pct": 30.49,
-    "skill_gain_vs_local_only_pct": 0.92
+    "seasonal_breakdown": {
+      "all_months": {
+        "n_months": 96,
+        "climatology_rmse": 0.9267,
+        "persistence_rmse": 1.3693,
+        "persistence_r": -0.1268,
+        "local_ar_rmse": 0.9376,
+        "local_ar_r": -0.1431,
+        "multi_ocean_rmse": 0.9282,
+        "multi_ocean_r": 0.021,
+        "ocean_vs_local_pct": 1.0,
+        "ocean_vs_clim_pct": -0.16
+      },
+      "kiremt_monsoon": {
+        "n_months": 24,
+        "climatology_rmse": 0.524,
+        "persistence_rmse": 1.1228,
+        "persistence_r": -0.5597,
+        "local_ar_rmse": 0.5512,
+        "local_ar_r": -0.5584,
+        "multi_ocean_rmse": 0.5364,
+        "multi_ocean_r": -0.1474,
+        "ocean_vs_local_pct": 2.69,
+        "ocean_vs_clim_pct": -2.37
+      },
+      "belg_rains": {
+        "n_months": 24,
+        "climatology_rmse": 0.7679,
+        "persistence_rmse": 1.377,
+        "persistence_r": 0.0599,
+        "local_ar_rmse": 0.7735,
+        "local_ar_r": 0.0671,
+        "multi_ocean_rmse": 0.8062,
+        "multi_ocean_r": 0.0254,
+        "ocean_vs_local_pct": -4.23,
+        "ocean_vs_clim_pct": -4.99
+      },
+      "bega_dry": {
+        "n_months": 32,
+        "climatology_rmse": 1.2505,
+        "persistence_rmse": 1.3546,
+        "persistence_r": -0.1396,
+        "local_ar_rmse": 1.2519,
+        "local_ar_r": -0.1469,
+        "multi_ocean_rmse": 1.2073,
+        "multi_ocean_r": 0.1742,
+        "ocean_vs_local_pct": 3.57,
+        "ocean_vs_clim_pct": 3.46
+      }
+    }
   }
 }

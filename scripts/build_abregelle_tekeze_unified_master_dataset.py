@@ -107,14 +107,27 @@ def compute_hargreaves_pet_series(tmean_series: pd.Series, dtr_series: pd.Series
     return pd.Series(pet_vals, index=tmean_series.index)
 
 
-def compute_standardized_indices_spi_spei(precip: np.ndarray, pet: np.ndarray, scale: int = 3) -> Tuple[np.ndarray, np.ndarray]:
+def compute_standardized_indices_spi_spei(
+    precip: np.ndarray,
+    pet: np.ndarray,
+    scale: int = 3,
+    calib_mask: Optional[np.ndarray] = None
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Computes rolling SPI and SPEI at specified scale (e.g. 3 months)
     using Gate 2 verified Gamma and GLO estimators.
+    
+    Leakage Prevention (Gate 2 Compliance):
+      If calib_mask is provided, parameters (Gamma alpha/beta/p0 and GLO xi/alpha/k)
+      are strictly estimated on calibration indices (e.g. historical reference period < 2016),
+      preventing distributional information look-ahead into the holdout evaluation period.
     """
     n = len(precip)
     spi_out = np.full(n, np.nan, dtype=np.float64)
     spei_out = np.full(n, np.nan, dtype=np.float64)
+
+    if calib_mask is None:
+        calib_mask = np.ones(n, dtype=bool)
 
     # Rolling accumulation
     p_acc = np.full(n, np.nan, dtype=np.float64)
@@ -133,9 +146,11 @@ def compute_standardized_indices_spi_spei(precip: np.ndarray, pet: np.ndarray, s
     for mo in range(12):
         mo_indices = np.arange(mo, n, 12)
         valid_mo = [idx for idx in mo_indices if not np.isnan(p_acc[idx])]
-        if len(valid_mo) >= 20:
+        train_mo = [idx for idx in valid_mo if calib_mask[idx]]
+
+        if len(train_mo) >= 20:
             # SPI: Gamma
-            sample_p = p_acc[valid_mo]
+            sample_p = p_acc[train_mo]
             try:
                 alpha, beta, p_zero = fit_gamma_spi(sample_p)
                 for idx in valid_mo:
@@ -148,8 +163,9 @@ def compute_standardized_indices_spi_spei(precip: np.ndarray, pet: np.ndarray, s
 
         # SPEI: GLO
         valid_d = [idx for idx in mo_indices if not np.isnan(d_acc[idx])]
-        if len(valid_d) >= 20:
-            sample_d = d_acc[valid_d]
+        train_d = [idx for idx in valid_d if calib_mask[idx]]
+        if len(train_d) >= 20:
+            sample_d = d_acc[train_d]
             try:
                 xi, alpha_glo, k = fit_generalized_logistic_l_moments(sample_d)
                 for idx in valid_d:
@@ -161,6 +177,7 @@ def compute_standardized_indices_spi_spei(precip: np.ndarray, pet: np.ndarray, s
                 pass
 
     return spi_out, spei_out
+
 
 
 def build_unified_abregelle_dataset() -> pd.DataFrame:
@@ -245,11 +262,15 @@ def build_unified_abregelle_dataset() -> pd.DataFrame:
     df_master["climatic_water_balance_mm"] = df_master["precip_analysis_mm"] - df_master["pet_hargreaves_mm"]
 
     # 7. Compute Standardized Drought Targets (SPI-3 and SPEI-3)
+    # Calibrated strictly on the pre-2016 historical baseline to prevent distributional leakage
+    calib_mask = (df_master["year"] < 2016).values
     precip_arr = df_master["precip_analysis_mm"].values
+
     pet_arr = df_master["pet_hargreaves_mm"].values
-    spi3, spei3 = compute_standardized_indices_spi_spei(precip_arr, pet_arr, scale=3)
+    spi3, spei3 = compute_standardized_indices_spi_spei(precip_arr, pet_arr, scale=3, calib_mask=calib_mask)
     df_master["spi3"] = spi3
     df_master["spei3"] = spei3
+
 
     # 8. Standardize Soil Moisture Anomaly (departure from monthly climatology)
     if "era5_swvl2_rootzone" in df_master.columns and not df_master["era5_swvl2_rootzone"].dropna().empty:
@@ -291,19 +312,22 @@ def build_unified_abregelle_dataset() -> pd.DataFrame:
 def evaluate_leakage_safe_forecasting(df: pd.DataFrame) -> Dict[str, Any]:
     """
     Evaluates strictly leakage-safe multi-lead seasonal drought forecasts (h in {1, 2, 3} months).
-    Target: Standardized Precipitation Index (SPI-3) over Tanqua Abergele Woreda polygon (mean=0.0, std=1.0).
-    Evaluation Period: Exactly 2016-01 through 2023-12 (96 continuous calendar months).
-    Training Period: 1981-03 through 2015-12 (418 continuous historical months).
+    Target: Standardized Precipitation Index (SPI-3) over Tanqua Abergele Woreda polygon.
+    Calibration Baseline: 1981-01 to 2015-12 (training period only for Gamma distribution fitting).
+    Holdout Evaluation Window: 2016-01 through 2023-12 (96 continuous calendar months).
+    Training Period for Models: 1981-03 through 2015-12 (418 continuous historical months).
+    
     Models Evaluated:
       1. Climatological Mean (E[y] = 0.0)
       2. Autoregressive Persistence (SPI-3_{t-h})
-      3. Local-Climate-Only Model (AR on SPI-3_{t-h} + calendar harmonics)
-      4. Multi-Ocean Informed Model (Local climate + Pacific Nino 3.4 at t-h and t-h-6 + Indian DMI + Atlantic Gradient)
-    Strictly causal: X_{<= t-h} predicts SPI-3_{t}.
+      3. Local-Climate-Only Model (AR on SPI-3_{t-h} + calendar harmonics sin/cos)
+      4. Multi-Ocean Informed Model (Local climate + Pacific Nino 3.4 at t-h & t-h-6 + Indian DMI + Atlantic Gradient)
+    Controlled Protocol: Identical Ridge tuning (alpha=2.0), identical sample splits.
+    Statistical Rigor: Stationary circular block-bootstrap (2,000 resamples, block length = 6 months)
+    to estimate 95% confidence intervals and p-values for dRMSE vs Climatology, Persistence, and Local AR.
     """
     print("\nEvaluating Leakage-Safe Multi-Lead Forecast Experiments on Abregelle SPI-3...")
 
-    # Filter to period with valid SPI3 target
     target_col = "spi3"
     test_mask = (df["year"] >= 2016) & (df["year"] <= 2023)
     test_df = df[test_mask]
@@ -311,6 +335,14 @@ def evaluate_leakage_safe_forecasting(df: pd.DataFrame) -> Dict[str, Any]:
     y_test = test_df[target_col].values
     n_test = len(y_test)
     print(f"  Holdout evaluation window: 2016-01 to 2023-12 ({n_test} calendar months).")
+
+    # Define seasonal subsets in the 96-month test set
+    test_seasons = {
+        "all_months": test_mask,
+        "kiremt_monsoon": test_mask & df["month"].isin([7, 8, 9]),
+        "belg_rains": test_mask & df["month"].isin([3, 4, 5]),
+        "bega_dry": test_mask & df["month"].isin([10, 11, 12, 1])
+    }
 
     results = {}
 
@@ -345,49 +377,136 @@ def evaluate_leakage_safe_forecasting(df: pd.DataFrame) -> Dict[str, Any]:
         X_te_loc, X_te_ocn = build_features(test_indices, h)
 
         from sklearn.linear_model import Ridge
-        ridge_loc = Ridge(alpha=1.0).fit(X_tr_loc, y_train)
+        # Controlled tuning budget: alpha=2.0 for both local and ocean
+        ridge_loc = Ridge(alpha=2.0).fit(X_tr_loc, y_train)
         y_pred_loc = ridge_loc.predict(X_te_loc)
 
-        ridge_ocn = Ridge(alpha=5.0).fit(X_tr_ocn, y_train)
+        ridge_ocn = Ridge(alpha=2.0).fit(X_tr_ocn, y_train)
         y_pred_ocn = ridge_ocn.predict(X_te_ocn)
 
-        def get_metrics(y_true, y_pred, is_clim=False):
-            rmse = float(np.sqrt(np.mean((y_true - y_pred)**2)))
-            mae = float(np.mean(np.abs(y_true - y_pred)))
-            if is_clim:
-                r_val = None
-            else:
-                r, _ = stats.pearsonr(y_true, y_pred)
-                r_val = round(float(r), 4)
-            return {"rmse": round(rmse, 4), "mae": round(mae, 4), "pearson_r": r_val}
+        def calc_rmse(y_t, y_p):
+            return float(np.sqrt(np.mean((y_t - y_p)**2)))
 
-        m_clim = get_metrics(y_test, y_pred_clim, is_clim=True)
-        m_pers = get_metrics(y_test, y_pred_pers)
-        m_loc = get_metrics(y_test, y_pred_loc)
-        m_ocn = get_metrics(y_test, y_pred_ocn)
+        def calc_mae(y_t, y_p):
+            return float(np.mean(np.abs(y_t - y_p)))
 
-        skill_gain_vs_pers = round((1.0 - m_ocn["rmse"] / m_pers["rmse"]) * 100.0, 2)
-        skill_gain_vs_local = round((1.0 - m_ocn["rmse"] / m_loc["rmse"]) * 100.0, 2)
+        def calc_r(y_t, y_p):
+            if np.std(y_p) < 1e-6:
+                return None
+            r, _ = stats.pearsonr(y_t, y_p)
+            return round(float(r), 4)
+
+        rmse_clim = calc_rmse(y_test, y_pred_clim)
+        rmse_pers = calc_rmse(y_test, y_pred_pers)
+        rmse_loc  = calc_rmse(y_test, y_pred_loc)
+        rmse_ocn  = calc_rmse(y_test, y_pred_ocn)
+
+        # Stationary Block Bootstrap for Uncertainty Quantification
+        np.random.seed(42)
+        B = 2000
+        block_len = 6
+        n_blocks = int(np.ceil(n_test / block_len))
+        diff_clim_boot, diff_pers_boot, diff_loc_boot = [], [], []
+
+        for _ in range(B):
+            start_indices = np.random.randint(0, n_test, size=n_blocks)
+            boot_idx = []
+            for s in start_indices:
+                for b in range(block_len):
+                    boot_idx.append((s + b) % n_test)
+            boot_idx = np.array(boot_idx[:n_test])
+
+            yt_b = y_test[boot_idx]
+            r_clim_b = calc_rmse(yt_b, y_pred_clim[boot_idx])
+            r_pers_b = calc_rmse(yt_b, y_pred_pers[boot_idx])
+            r_loc_b  = calc_rmse(yt_b, y_pred_loc[boot_idx])
+            r_ocn_b  = calc_rmse(yt_b, y_pred_ocn[boot_idx])
+
+            diff_clim_boot.append(r_ocn_b - r_clim_b)
+            diff_pers_boot.append(r_ocn_b - r_pers_b)
+            diff_loc_boot.append(r_ocn_b - r_loc_b)
+
+        ci_clim = [round(float(x), 4) for x in np.percentile(diff_clim_boot, [2.5, 97.5])]
+        ci_pers = [round(float(x), 4) for x in np.percentile(diff_pers_boot, [2.5, 97.5])]
+        ci_loc  = [round(float(x), 4) for x in np.percentile(diff_loc_boot, [2.5, 97.5])]
+
+        p_val_clim = round(float(np.mean(np.array(diff_clim_boot) >= 0.0)), 4)
+        p_val_pers = round(float(np.mean(np.array(diff_pers_boot) >= 0.0)), 4)
+        p_val_loc  = round(float(np.mean(np.array(diff_loc_boot) >= 0.0)), 4)
+
+        # Seasonal disaggregation
+        seasonal_breakdown = {}
+        for s_key, s_mask in test_seasons.items():
+            s_idx = df.index[s_mask]
+            yt_s = df.loc[s_idx, target_col].values
+            X_s_loc, X_s_ocn = build_features(s_idx, h)
+            yp_clim_s = np.full(len(yt_s), 0.0)
+            yp_pers_s = df.loc[s_idx - h, target_col].values
+            yp_loc_s  = ridge_loc.predict(X_s_loc)
+            yp_ocn_s  = ridge_ocn.predict(X_s_ocn)
+
+            s_rmse_clim = calc_rmse(yt_s, yp_clim_s)
+            s_rmse_pers = calc_rmse(yt_s, yp_pers_s)
+            s_rmse_loc  = calc_rmse(yt_s, yp_loc_s)
+            s_rmse_ocn  = calc_rmse(yt_s, yp_ocn_s)
+
+            seasonal_breakdown[s_key] = {
+                "n_months": len(yt_s),
+                "climatology_rmse": round(s_rmse_clim, 4),
+                "persistence_rmse": round(s_rmse_pers, 4),
+                "persistence_r": calc_r(yt_s, yp_pers_s),
+                "local_ar_rmse": round(s_rmse_loc, 4),
+                "local_ar_r": calc_r(yt_s, yp_loc_s),
+                "multi_ocean_rmse": round(s_rmse_ocn, 4),
+                "multi_ocean_r": calc_r(yt_s, yp_ocn_s),
+                "ocean_vs_local_pct": round((1.0 - s_rmse_ocn / s_rmse_loc) * 100.0, 2),
+                "ocean_vs_clim_pct": round((1.0 - s_rmse_ocn / s_rmse_clim) * 100.0, 2)
+            }
+
+        skill_gain_vs_clim = round((1.0 - rmse_ocn / rmse_clim) * 100.0, 2)
+        skill_gain_vs_pers = round((1.0 - rmse_ocn / rmse_pers) * 100.0, 2)
+        skill_gain_vs_loc  = round((1.0 - rmse_ocn / rmse_loc) * 100.0, 2)
 
         results[f"lead_{h}_month"] = {
             "lead_months": h,
             "target_variable": "spi3 (Abregelle 3-month Standardized Precipitation Index)",
             "evaluation_window": "2016-01 to 2023-12",
             "test_months_evaluated": n_test,
-            "climatology_baseline": m_clim,
-            "persistence_baseline": m_pers,
-            "local_climate_only": m_loc,
-            "multi_ocean_informed": m_ocn,
-            "skill_gain_vs_persistence_pct": skill_gain_vs_pers,
-            "skill_gain_vs_local_only_pct": skill_gain_vs_local
+            "models": {
+                "climatology_baseline": {"rmse": round(rmse_clim, 4), "mae": round(calc_mae(y_test, y_pred_clim), 4), "pearson_r": None},
+                "persistence_baseline": {"rmse": round(rmse_pers, 4), "mae": round(calc_mae(y_test, y_pred_pers), 4), "pearson_r": calc_r(y_test, y_pred_pers)},
+                "local_climate_only":   {"rmse": round(rmse_loc, 4), "mae": round(calc_mae(y_test, y_pred_loc), 4), "pearson_r": calc_r(y_test, y_pred_loc)},
+                "multi_ocean_informed": {"rmse": round(rmse_ocn, 4), "mae": round(calc_mae(y_test, y_pred_ocn), 4), "pearson_r": calc_r(y_test, y_pred_ocn)}
+            },
+            "uncertainty_block_bootstrap": {
+                "resamples": B,
+                "block_length_months": block_len,
+                "dRMSE_ocean_minus_clim": round(rmse_ocn - rmse_clim, 4),
+                "ci95_ocean_minus_clim": ci_clim,
+                "p_value_ocean_beats_clim": p_val_clim,
+                "dRMSE_ocean_minus_pers": round(rmse_ocn - rmse_pers, 4),
+                "ci95_ocean_minus_pers": ci_pers,
+                "p_value_ocean_beats_pers": p_val_pers,
+                "dRMSE_ocean_minus_local": round(rmse_ocn - rmse_loc, 4),
+                "ci95_ocean_minus_local": ci_loc,
+                "p_value_ocean_beats_local": p_val_loc
+            },
+            "skill_comparisons_pct": {
+                "error_reduction_vs_climatology_pct": skill_gain_vs_clim,
+                "error_reduction_vs_persistence_pct": skill_gain_vs_pers,
+                "error_reduction_vs_local_pct": skill_gain_vs_loc
+            },
+            "seasonal_breakdown": seasonal_breakdown
         }
 
         print(f"\n[LEAD HORIZON: {h} MONTH(S) AHEAD] (Evaluated Months: {n_test})")
-        print(f"  Climatology Baseline:   RMSE = {m_clim['rmse']:.4f}, MAE = {m_clim['mae']:.4f}")
-        print(f"  Persistence Baseline:   RMSE = {m_pers['rmse']:.4f}, MAE = {m_pers['mae']:.4f}, r = {m_pers['pearson_r']}")
-        print(f"  Local Climate Model:    RMSE = {m_loc['rmse']:.4f}, MAE = {m_loc['mae']:.4f}, r = {m_loc['pearson_r']}")
-        print(f"  Multi-Ocean Model:      RMSE = {m_ocn['rmse']:.4f}, MAE = {m_ocn['mae']:.4f}, r = {m_ocn['pearson_r']}")
-        print(f"  Skill Gain vs Baseline: {skill_gain_vs_pers:+.2f}% error reduction over persistence")
+        print(f"  Climatology Baseline:   RMSE = {rmse_clim:.4f}")
+        print(f"  Persistence Baseline:   RMSE = {rmse_pers:.4f}, r = {calc_r(y_test, y_pred_pers)}")
+        print(f"  Local Climate Model:    RMSE = {rmse_loc:.4f}, r = {calc_r(y_test, y_pred_loc)}")
+        print(f"  Multi-Ocean Model:      RMSE = {rmse_ocn:.4f}, r = {calc_r(y_test, y_pred_ocn)}")
+        print(f"  Ocean vs Climatology:   dRMSE = {rmse_ocn - rmse_clim:+.4f} (95% CI: [{ci_clim[0]:+.4f}, {ci_clim[1]:+.4f}], p={p_val_clim:.4f})")
+        print(f"  Ocean vs Persistence:   dRMSE = {rmse_ocn - rmse_pers:+.4f} (95% CI: [{ci_pers[0]:+.4f}, {ci_pers[1]:+.4f}], p={p_val_pers:.4f})")
+        print(f"  Ocean vs Local AR:      dRMSE = {rmse_ocn - rmse_loc:+.4f} (95% CI: [{ci_loc[0]:+.4f}, {ci_loc[1]:+.4f}], p={p_val_loc:.4f})")
 
     # Save to JSON
     json_path = PROCESSED_DIR / "forecast_skill_comparison_ocean_vs_baselines.json"
@@ -401,6 +520,7 @@ def evaluate_leakage_safe_forecasting(df: pd.DataFrame) -> Dict[str, Any]:
         json.dump(results, f, indent=2)
 
     return results
+
 
 
 if __name__ == "__main__":
