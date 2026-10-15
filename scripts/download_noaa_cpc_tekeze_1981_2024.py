@@ -28,7 +28,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 RAW_CPC_DIR = ROOT_DIR / "data" / "raw" / "temperature" / "cpc"
 MANIFEST_PATH = RAW_CPC_DIR / "cpc_manifest.json"
 
-PSL_BASE_URL = "https://psl.noaa.gov/thredds/fileServer/Datasets/cpc_global_temp/"
+PSL_BASE_URL = "https://downloads.psl.noaa.gov/Datasets/cpc_global_temp/"
 
 
 def compute_sha256(filepath: Path) -> str:

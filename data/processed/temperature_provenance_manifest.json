@@ -1,9 +1,9 @@
 {
   "title": "Tekez\u00e9 Basin Audited Monthly Temperature Dataset",
   "spatial_domain": "Tekez\u00e9 River Basin Catchment (67,135.4 km\u00b2)",
-  "years_processed": 1,
-  "total_monthly_records": 12,
-  "date_generated": "2026-10-14T07:05:30.659555",
+  "years_processed": 2,
+  "total_monthly_records": 24,
+  "date_generated": "2026-10-15T04:01:16.452987",
   "columns": [
     "year",
     "month",
