@@ -43,7 +43,7 @@ AMHARA_BASINS: List[Dict[str, Any]] = [
         "centroid_lat": 10.70,
         "centroid_lon": 37.80,
         "area_km2": 13800,
-        "description": "Highland agricultural heartland and headwater springs.",
+        "description": "Highland agricultural heartland and headwater springs of Mount Choke.",
         "el_nino_index_2026": 1.70,
         "drought_index_2026": -1.35,
         "precipitation_2026_mm": 490,

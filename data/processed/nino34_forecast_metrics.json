@@ -1,53 +1,53 @@
 {
   "1_month_lead": {
     "lead_months": 1,
-    "best_model": "PyTorch_LSTM",
-    "test_samples": 130,
-    "test_rmse": 0.3512,
-    "test_mae": 0.2046,
-    "test_r2": 0.8022,
-    "pearson_r": 0.9002,
-    "persistence_rmse": 0.4657,
-    "skill_gain_vs_persistence_pct": 24.59,
+    "best_model": "XGBoost",
+    "test_samples": 132,
+    "test_rmse": 0.4613,
+    "test_mae": 0.2536,
+    "test_r2": 0.6667,
+    "pearson_r": 0.8261,
+    "persistence_rmse": 0.5335,
+    "skill_gain_vs_persistence_pct": 13.53,
     "all_models_rmse": {
-      "Persistence": 0.4657,
-      "Ridge": 0.4671,
-      "XGBoost": 0.3528,
-      "PyTorch_LSTM": 0.3512
+      "Persistence": 0.5335,
+      "Ridge": 0.7049,
+      "XGBoost": 0.4613,
+      "PyTorch_LSTM": 0.4798
     }
   },
   "3_month_lead": {
     "lead_months": 3,
-    "best_model": "Ridge",
-    "test_samples": 128,
-    "test_rmse": 0.5328,
-    "test_mae": 0.3939,
-    "test_r2": 0.5076,
-    "pearson_r": 0.7266,
-    "persistence_rmse": 0.7733,
-    "skill_gain_vs_persistence_pct": 31.1,
+    "best_model": "XGBoost",
+    "test_samples": 130,
+    "test_rmse": 0.4839,
+    "test_mae": 0.3781,
+    "test_r2": 0.6054,
+    "pearson_r": 0.7897,
+    "persistence_rmse": 0.7383,
+    "skill_gain_vs_persistence_pct": 34.47,
     "all_models_rmse": {
-      "Persistence": 0.7733,
-      "Ridge": 0.5328,
-      "XGBoost": 0.5408,
-      "PyTorch_LSTM": 0.5601
+      "Persistence": 0.7383,
+      "Ridge": 0.6037,
+      "XGBoost": 0.4839,
+      "PyTorch_LSTM": 0.5095
     }
   },
   "6_month_lead": {
     "lead_months": 6,
     "best_model": "Ridge",
-    "test_samples": 125,
-    "test_rmse": 0.6806,
-    "test_mae": 0.5717,
-    "test_r2": 0.2,
-    "pearson_r": 0.5077,
-    "persistence_rmse": 1.0418,
-    "skill_gain_vs_persistence_pct": 34.67,
+    "test_samples": 127,
+    "test_rmse": 0.6861,
+    "test_mae": 0.5746,
+    "test_r2": 0.211,
+    "pearson_r": 0.5191,
+    "persistence_rmse": 1.0489,
+    "skill_gain_vs_persistence_pct": 34.59,
     "all_models_rmse": {
-      "Persistence": 1.0418,
-      "Ridge": 0.6806,
-      "XGBoost": 0.7237,
-      "PyTorch_LSTM": 0.7169
+      "Persistence": 1.0489,
+      "Ridge": 0.6861,
+      "XGBoost": 0.7256,
+      "PyTorch_LSTM": 0.7369
     }
   }
 }
