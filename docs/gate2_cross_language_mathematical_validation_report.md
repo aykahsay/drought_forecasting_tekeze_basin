@@ -77,12 +77,26 @@ The 7 benchmark test cases (5 GLO cases, 2 Gamma cases) stored in [`drought_fore
 | **Case 6** | Gamma | Belg Short Season (with zeros) | $\alpha_g=2.2, \beta_g=35.0, q=0.08$ | Lower: $0.0$ | $< 5.0 \times 10^{-5}$ | $|\Delta \alpha_g| < 0.04, |\Delta q| < 0.005$ | **PASSED** |
 | **Case 7** | Gamma | Kiremt Peak Rains (zero-free) | $\alpha_g=4.5, \beta_g=50.0, q=0.00$ | Lower: $0.0$ | $< 3.5 \times 10^{-5}$ | $|\Delta \alpha_g| < 0.03, |\Delta \beta_g| < 0.25$ | **PASSED** |
 
-#### 3.1 Test Suite Function Mapping
+#### 3.1 Test Suite Function Mapping (19 Automated Tests)
 * `test_glo_benchmark_parameter_recovery`: Tests sample L-moment estimation across all 5 GLO cases against theoretical parameters.
 * `test_glo_benchmark_quantiles_and_cdf_roundtrip`: Compares non-exceedance probabilities across all 15 quantiles ($P \in [0.001, 0.999]$) per case against R `cdfglo`.
 * `test_glo_support_boundaries_and_limits`: Evaluates $k > 0$ upper support, $k < 0$ lower support, and $k \to 0$ standard logistic limit.
 * `test_gamma_spi_benchmark_recovery`: Tests 2-parameter Gamma MLE (Thom 1958) and zero-precipitation adjustment $H(x) = q + (1 - q)G(x)$ across Cases 6 and 7.
 * `test_inverse_normal_conversion_and_clipping`: Validates standard normal z-score transformation via `ndtri`.
+* `test_glo_support_boundaries_epsilon`: Verifies support behavior immediately inside and outside finite boundaries within IEEE 754 float64 precision.
+* `test_glo_shape_approaching_zero`: Verifies continuity of GLO CDF as shape $k$ approaches zero from both positive ($k \to 0^+$) and negative ($k \to 0^-$) sides.
+* `test_glo_monotonicity_and_symmetric_fitting`: Verifies strict monotonicity within support and finite estimates on symmetric samples.
+* `test_hargreaves_radiation_units_fao56_benchmark`: Validates dimensional consistency of Hargreaves equation ($0.0023 \times 0.408 \times R_{a,\text{MJ}}$).
+* `test_hargreaves_published_reference_direct_calculation`: Directly reproduces published numerical calculations from FAO-56 Table 2.6 & Example 14 (Lat 45°N: $5.03\text{ mm/day}$; Lat 13°N Tekeze analog: $5.28\text{ mm/day}$) using user-supplied $R_a$ directly, bypassing internal solar helpers.
+* `test_hargreaves_leap_year_and_daily_summation`: Confirms exact leap-year day counts (29 days in Feb 1984 vs 28 in Feb 1985) and daily summation integrity.
+* `test_hargreaves_latitude_dependence_and_temperature_validity`: Rejects unphysical inputs ($T_{\max} < T_{\min}$, out of range) and validates tropical solar declination.
+* `test_glo_extreme_tail_endpoints_and_deliberate_safeguards`: Verifies that endpoints ($p \le 0 \to -5.0$, $p \ge 1 \to +5.0$) prevent infinite values.
+* `test_endpoint_safeguard_categorical_invariance`: Proves that standard drought classifications ($\le -1.0, -1.5, -2.0$) are 100% mathematically invariant to tail safeguards.
+* `test_glo_log_cdf_and_robust_z_score`: Verifies exact asymptotic log-CDF, log-survival, and uncapped robust normal score transformation via `scipy.special.ndtri_exp` across extreme lower tails ($z < -5.0$ to $z \approx -10.8$).
+* `test_compare_safeguard_cap_vs_robust_log_transformation_synthetic`: Compares operational $\pm 5.0$ cap against uncapped log-scale transformation across a 50-year synthetic series with outliers, verifying zero classification discrepancies.
+* `test_summarize_safeguards_by_month_and_split`: Verifies rigorous tallying of endpoint safeguards across 12 calendar months and dataset splits.
+* `test_four_tier_drought_target_schema_and_frozen_calibration`: Validates 4-tier target generator with frozen parameter guarantees.
+* `test_rolling_spei_diagnostics_and_safeguards`: Verifies goodness-of-fit diagnostics (KS test statistic, p-value, support boundary audits) across all 12 calendar months.
 
 ---
 
@@ -109,11 +123,12 @@ Where $G(x) = \frac{1}{\Gamma(\alpha)} \gamma(\alpha, x/\beta)$ is the incomplet
 The standardized drought index (SPEI or SPI) transforms non-exceedance probability $P$ to a standard normal deviate $Z \sim \mathcal{N}(0, 1)$:
 $$Z = \Phi^{-1}(P) = \sqrt{2} \cdot \text{erf}^{-1}(2P - 1)$$
 
-Implemented via `scipy.special.ndtri(p)` with Abramowitz & Stegun (1965) rational approximation fallback.
+Implemented via `scipy.special.ndtri(p)` with Abramowitz & Stegun (1965) rational approximation fallback, and `scipy.special.ndtri_exp(log_p)` for extreme asymptotic tails.
 
-#### 5.1 Preservation of Unclipped Mathematical Outputs
+#### 5.1 Preservation of Unclipped Mathematical Outputs & Tail Safeguard Invariance
 * The core mathematical library preserves the exact unclipped $Z$-score for all finite, valid non-exceedance probabilities.
-* Extreme probability guards ($P \in [10^{-6}, 1.0 - 10^{-6}]$) prevent floating-point overflow to $\pm \infty$ while preserving full extreme values ($Z \in [-4.75, +4.75]$).
+* Extreme probability guards ($p \le 0.0 \to -5.0$, $p \ge 1.0 \to +5.0$) prevent floating-point overflow to $\pm \infty$.
+* Robust log-CDF / log-survival sensitivity analysis confirms that capping extreme tails at $\pm 5.0$ introduces zero discrepancies in categorical drought classifications ($\text{SPEI} \le -1.0, -1.5, -2.0, -2.5$).
 * Any downstream clipping (such as $[-3.5, +3.5]$) is strictly documented as an **operational visualization policy** in the dashboard layer, and is never applied to the underlying scientific data archive.
 
 #### 5.2 Drought Threshold Verification Table
@@ -130,4 +145,4 @@ Implemented via `scipy.special.ndtri(p)` with Abramowitz & Stegun (1965) rationa
 
 ### 6. Gate 2 Verification Conclusion
 
-The mathematical implementation in [`drought_forecasting/agriminds/climate/spei_calculator.py`](file:///c:/Users/User/Desktop/AgriMinds/drought_forecasting/agriminds/climate/spei_calculator.py) is officially **certified compliant with CRAN SPEI and Hosking (1990) standards**. Gate 2 status is **PASS**.
+The mathematical implementation in [`drought_forecasting/agriminds/climate/spei_calculator.py`](file:///c:/Users/User/Desktop/AgriMinds/drought_forecasting/agriminds/climate/spei_calculator.py) is officially **certified compliant with CRAN SPEI and Hosking (1990) standards**. All 19 automated tests in `test_gate2_mathematical_benchmarks.py` pass cleanly. Gate 2 status is **PASS — reported**.

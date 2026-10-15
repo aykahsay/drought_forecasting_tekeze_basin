@@ -98,26 +98,41 @@ def calculate_extraterrestrial_radiation_ra(
     # Convert MJ / (m^2 * day) to mm/day equivalent via 0.408 (1 / lambda) - FAO-56 Eq. 20
     ra_mm_day = max(0.0, 0.408 * ra_mj)
     return float(ra_mm_day)
-
-
-def calculate_hargreaves_daily_pet(
+def calculate_hargreaves_daily_pet(
     t_max_c: float,
     t_min_c: float,
     latitude_deg: float,
-    day_of_year: int
+    day_of_year: int,
+    ra_mm_day: Optional[float] = None,
+    ra_mj: Optional[float] = None
 ) -> float:
     """
-    Calculates daily Hargreaves-Samani (1985; FAO-56 Eq. 52) Reference Evapotranspiration (PET_d) in mm/day.
+    Calculates daily Hargreaves-Samani (1985; FAO-56 Eq. 52) Reference Evapotranspiration (ET_0,d) in mm/day.
 
     Formulas:
         In energy units (Ra in MJ m^-2 day^-1):
-            PET_d (mm/day) = 0.0023 * 0.408 * Ra_MJ * (T_mean + 17.8) * sqrt(T_max - T_min)
-                           = 0.0009384 * Ra_MJ * (T_mean + 17.8) * sqrt(T_max - T_min)
+            ET_0,d (mm/day) = 0.0023 * 0.408 * Ra_MJ * (T_mean + 17.8) * sqrt(T_max - T_min)
+                            = 0.0009384 * Ra_MJ * (T_mean + 17.8) * sqrt(T_max - T_min)
         In equivalent evaporation depth (Ra_eq in mm/day = 0.408 * Ra_MJ):
-            PET_d (mm/day) = 0.0023 * Ra_eq * (T_mean + 17.8) * sqrt(T_max - T_min)
+            ET_0,d (mm/day) = 0.0023 * Ra_eq * (T_mean + 17.8) * sqrt(T_max - T_min)
+
+    Scientific Distinction (Reference vs Actual Evapotranspiration):
+        Hargreaves-Samani estimates reference crop evapotranspiration (ET_0) from temperature
+        and extraterrestrial radiation. It is NOT a direct measurement of actual evapotranspiration (ET_a).
+        In SPEI, the water balance series D = P - PET represents climatic water balance (atmospheric supply
+        minus atmospheric evaporative demand). Sensitivity of SPEI to PET formulation must be evaluated
+        prior to drought severity assessment.
+
+    Args:
+        t_max_c: Daily maximum temperature in °C.
+        t_min_c: Daily minimum temperature in °C.
+        latitude_deg: Latitude in decimal degrees (positive North).
+        day_of_year: Julian day of year (1–366).
+        ra_mm_day: Optional user-supplied extraterrestrial radiation in mm/day equivalent (e.g. from published tables).
+        ra_mj: Optional user-supplied extraterrestrial radiation in MJ m^-2 day^-1.
 
     Returns:
-        PET_d in mm/day, or float("nan") if inputs are non-finite or unphysical (e.g., T_max < T_min).
+        ET_0,d in mm/day, or float("nan") if inputs are non-finite or unphysical (e.g., T_max < T_min).
     """
     if not (math.isfinite(t_max_c) and math.isfinite(t_min_c)):
         return float("nan")
@@ -125,21 +140,29 @@ def calculate_hargreaves_daily_pet(
         return float("nan")
     if not (-60.0 <= t_min_c <= 60.0 and -60.0 <= t_max_c <= 65.0):
         return float("nan")
-    if not (1 <= day_of_year <= 366):
-        return float("nan")
 
-    # Approximate month for day_of_year to satisfy signature
-    month = min(12, max(1, int(day_of_year / 30.5) + 1))
-    ra_mm_day = calculate_extraterrestrial_radiation_ra(
-        latitude_deg, month=month, days_in_month=30, day_of_year=day_of_year, return_energy_units=False
-    )
-    if not math.isfinite(ra_mm_day) or ra_mm_day <= 0.0:
-        return float("nan")
+    if ra_mm_day is not None:
+        if not (math.isfinite(ra_mm_day) and ra_mm_day > 0.0):
+            return float("nan")
+        eff_ra_mm_day = float(ra_mm_day)
+    elif ra_mj is not None:
+        if not (math.isfinite(ra_mj) and ra_mj > 0.0):
+            return float("nan")
+        eff_ra_mm_day = 0.408 * float(ra_mj)
+    else:
+        if not (1 <= day_of_year <= 366):
+            return float("nan")
+        month = min(12, max(1, int(day_of_year / 30.5) + 1))
+        eff_ra_mm_day = calculate_extraterrestrial_radiation_ra(
+            latitude_deg, month=month, days_in_month=30, day_of_year=day_of_year, return_energy_units=False
+        )
+        if not math.isfinite(eff_ra_mm_day) or eff_ra_mm_day <= 0.0:
+            return float("nan")
 
     t_mean_c = (t_max_c + t_min_c) / 2.0
     dtr = t_max_c - t_min_c
     t_term = max(0.0, t_mean_c + 17.8)
-    pet_day = 0.0023 * ra_mm_day * t_term * math.sqrt(dtr)
+    pet_day = 0.0023 * eff_ra_mm_day * t_term * math.sqrt(dtr)
     return max(0.0, float(pet_day))
 
 
@@ -182,7 +205,9 @@ def calculate_hargreaves_pet(
     t_mean_c: float,
     latitude_deg: float,
     month: int,
-    days_in_month: int
+    days_in_month: int,
+    ra_mm_day: Optional[float] = None,
+    ra_mj: Optional[float] = None
 ) -> float:
     """
     Calculates monthly Hargreaves-Samani (1985; FAO-56) Potential Evapotranspiration in mm/month
@@ -194,6 +219,10 @@ def calculate_hargreaves_pet(
         Equivalently, with Ra expressed in conventional energy units (MJ m^-2 day^-1):
         PET_d (mm/day) = 0.0023 * 0.408 * Ra_MJ * (T_mean + 17.8) * sqrt(T_max - T_min)
         PET (mm/month) = PET_d * days_in_month
+
+    Scientific Distinction:
+        Estimates reference evapotranspiration (ET_0), not actual evapotranspiration (ET_a).
+        SPEI measures the standardized deficit of precipitation relative to reference demand.
 
     Methodological Note on Jensen's Inequality:
         Because sqrt(u) is strictly concave, E[sqrt(DTR)] <= sqrt(E[DTR]).
@@ -214,13 +243,22 @@ def calculate_hargreaves_pet(
     if not (-60.0 <= t_min_c <= 60.0 and -60.0 <= t_max_c <= 65.0 and -60.0 <= t_mean_c <= 65.0):
         return float("nan")
 
-    ra_mm_day = calculate_extraterrestrial_radiation_ra(latitude_deg, month, days_in_month)
-    if not math.isfinite(ra_mm_day) or ra_mm_day <= 0.0:
-        return float("nan")
+    if ra_mm_day is not None:
+        if not (math.isfinite(ra_mm_day) and ra_mm_day > 0.0):
+            return float("nan")
+        eff_ra_mm_day = float(ra_mm_day)
+    elif ra_mj is not None:
+        if not (math.isfinite(ra_mj) and ra_mj > 0.0):
+            return float("nan")
+        eff_ra_mm_day = 0.408 * float(ra_mj)
+    else:
+        eff_ra_mm_day = calculate_extraterrestrial_radiation_ra(latitude_deg, month, days_in_month)
+        if not math.isfinite(eff_ra_mm_day) or eff_ra_mm_day <= 0.0:
+            return float("nan")
 
     dtr = t_max_c - t_min_c
     t_term = max(0.0, t_mean_c + 17.8)
-    pet_day = 0.0023 * ra_mm_day * t_term * math.sqrt(dtr)
+    pet_day = 0.0023 * eff_ra_mm_day * t_term * math.sqrt(dtr)
     return max(0.0, pet_day * days_in_month)
 
 
@@ -618,6 +656,250 @@ def summarize_safeguard_occurrences(guards: List[str]) -> Dict[str, int]:
     }
 
 
+def log_cdf_generalized_logistic(
+    x: float,
+    xi: float,
+    alpha: float,
+    k: float
+) -> float:
+    """
+    Computes log cumulative distribution function ln(F(x)) for Generalized Logistic (Hosking 1990)
+    with exact numerical stability across extreme lower and upper tails.
+
+    Support:
+      - k > 0: upper bounded at x < xi + alpha / k. For x >= bound, F(x) = 1 -> ln(F(x)) = 0.0.
+      - k < 0: lower bounded at x > xi + alpha / k. For x <= bound, F(x) = 0 -> ln(F(x)) = -inf.
+      - k == 0: unbounded standard logistic.
+    """
+    if not (math.isfinite(x) and math.isfinite(xi) and math.isfinite(alpha) and math.isfinite(k)):
+        return float("nan")
+    if alpha <= 0.0:
+        return float("nan")
+
+    if abs(k) < 1e-6:
+        arg = -(x - xi) / alpha
+        return float(-np.logaddexp(0.0, arg))
+
+    y = 1.0 - k * (x - xi) / alpha
+    if k > 0:
+        if y <= 0.0:
+            return 0.0  # At or above upper bound: F(x) = 1.0 -> ln(1) = 0.0
+    else:  # k < 0
+        if y <= 0.0:
+            return -float("inf")  # At or below lower bound: F(x) = 0.0 -> ln(0) = -inf
+
+    u = math.log(y) / k
+    return float(-np.logaddexp(0.0, u))
+
+
+def log_survival_generalized_logistic(
+    x: float,
+    xi: float,
+    alpha: float,
+    k: float
+) -> float:
+    """
+    Computes log survival function ln(1 - F(x)) for Generalized Logistic (Hosking 1990).
+    """
+    if not (math.isfinite(x) and math.isfinite(xi) and math.isfinite(alpha) and math.isfinite(k)):
+        return float("nan")
+    if alpha <= 0.0:
+        return float("nan")
+
+    if abs(k) < 1e-6:
+        arg = (x - xi) / alpha
+        return float(-np.logaddexp(0.0, arg))
+
+    y = 1.0 - k * (x - xi) / alpha
+    if k > 0:
+        if y <= 0.0:
+            return -float("inf")  # Above upper bound: 1 - F(x) = 0.0 -> ln(0) = -inf
+    else:  # k < 0
+        if y <= 0.0:
+            return 0.0  # Below lower bound: 1 - F(x) = 1.0 -> ln(1) = 0.0
+
+    u = math.log(y) / k
+    return float(-np.logaddexp(0.0, -u))
+
+
+def compute_robust_glo_z_score(
+    x: float,
+    xi: float,
+    alpha: float,
+    k: float,
+    extended_tail_bound: float = 10.0
+) -> Tuple[float, str]:
+    """
+    Computes standard normal score z = Phi^{-1}(F(x)) using high-precision log-CDF and log-survival
+    evaluations via scipy.special.ndtri_exp.
+
+    Provides an uncapped or extended-bound transformation for numerical sensitivity analysis
+    against the operational +/- 5.0 safeguard cap.
+    """
+    if not (math.isfinite(x) and math.isfinite(xi) and math.isfinite(alpha) and math.isfinite(k)):
+        return float("nan"), "NAN_INPUT"
+
+    # Check support bounds
+    if abs(k) >= 1e-6:
+        y = 1.0 - k * (x - xi) / alpha
+        if k > 0 and y <= 0.0:
+            return float(extended_tail_bound), "UPPER_SUPPORT_LIMIT"
+        if k < 0 and y <= 0.0:
+            return -float(extended_tail_bound), "LOWER_SUPPORT_LIMIT"
+
+    log_p = log_cdf_generalized_logistic(x, xi, alpha, k)
+    if not math.isfinite(log_p):
+        return -float(extended_tail_bound), "LOG_CDF_UNDERFLOW"
+
+    # If in lower tail (p <= 0.5 <=> log_p <= -ln(2) ~ -0.693147)
+    if log_p <= -0.6931471805599453:
+        z = float(sp.ndtri_exp(log_p))
+        flag = "EXACT_LOG_CDF"
+    else:
+        log_s = log_survival_generalized_logistic(x, xi, alpha, k)
+        z = -float(sp.ndtri_exp(log_s))
+        flag = "EXACT_LOG_SURVIVAL"
+
+    if z < -extended_tail_bound:
+        return -float(extended_tail_bound), "EXTENDED_LOWER_CLAMP"
+    elif z > extended_tail_bound:
+        return float(extended_tail_bound), "EXTENDED_UPPER_CLAMP"
+
+    return float(z), flag
+
+
+def compare_safeguard_cap_vs_robust_log_transformation(
+    d_values: np.ndarray,
+    xi: float,
+    alpha: float,
+    k: float,
+    operational_cap: float = 5.0,
+    drought_thresholds: Tuple[float, ...] = (-1.0, -1.5, -2.0, -2.5)
+) -> Dict[str, Any]:
+    """
+    Performs sensitivity analysis comparing standard operational safeguard cap (+/- 5.0)
+    with the exact uncapped log-CDF / log-survival transformation.
+
+    Verifies whether the operational cap introduces any discrepancy in categorical drought
+    classifications or material differences within the valid index range.
+    """
+    clean_vals = [float(v) for v in d_values if math.isfinite(v)]
+    if not clean_vals:
+        return {"status": "NO_DATA"}
+
+    z_capped = []
+    z_robust = []
+    flags_capped = []
+    flags_robust = []
+
+    for v in clean_vals:
+        prob = cdf_generalized_logistic(v, xi, alpha, k)
+        zc, fc = compute_standardized_z_score(prob, tail_bound=operational_cap, return_safeguard=True)
+        z_capped.append(zc)
+        flags_capped.append(fc)
+
+        zr, fr = compute_robust_glo_z_score(v, xi, alpha, k, extended_tail_bound=10.0)
+        z_robust.append(zr)
+        flags_robust.append(fr)
+
+    z_c = np.array(z_capped, dtype=np.float64)
+    z_r = np.array(z_robust, dtype=np.float64)
+
+    in_range_mask = (np.abs(z_c) < (operational_cap - 0.1))
+    max_in_range_abs_diff = float(np.max(np.abs(z_c[in_range_mask] - z_r[in_range_mask]))) if np.any(in_range_mask) else 0.0
+
+    threshold_agreements = {}
+    classification_invariant = True
+    for thresh in drought_thresholds:
+        cat_c = (z_c <= thresh)
+        cat_r = (z_r <= thresh)
+        agreement = bool(np.array_equal(cat_c, cat_r))
+        mismatches = int(np.sum(cat_c != cat_r))
+        threshold_agreements[f"threshold_{thresh}"] = {
+            "agreement": agreement,
+            "mismatch_count": mismatches,
+            "count_capped_events": int(np.sum(cat_c)),
+            "count_robust_events": int(np.sum(cat_r))
+        }
+        if not agreement:
+            classification_invariant = False
+
+    return {
+        "status": "SUCCESS",
+        "n_samples": len(clean_vals),
+        "operational_cap": operational_cap,
+        "classification_invariant_across_all_thresholds": classification_invariant,
+        "max_in_range_abs_diff": max_in_range_abs_diff,
+        "threshold_evaluations": threshold_agreements,
+        "safeguard_tallies": summarize_safeguard_occurrences(flags_capped),
+        "robust_flag_tallies": {
+            "exact_log_cdf": sum(1 for f in flags_robust if f == "EXACT_LOG_CDF"),
+            "exact_log_survival": sum(1 for f in flags_robust if f == "EXACT_LOG_SURVIVAL"),
+            "lower_support_limit": sum(1 for f in flags_robust if f == "LOWER_SUPPORT_LIMIT"),
+            "upper_support_limit": sum(1 for f in flags_robust if f == "UPPER_SUPPORT_LIMIT")
+        }
+    }
+
+
+def summarize_safeguards_by_month_and_split(
+    years: np.ndarray,
+    months: np.ndarray,
+    safeguards: List[str],
+    train_range: Tuple[int, int] = (1981, 2005),
+    val_range: Tuple[int, int] = (2006, 2014),
+    test_range: Tuple[int, int] = (2015, 2024)
+) -> Dict[str, Any]:
+    """
+    Summarizes safeguard occurrences broken down by calendar month (1..12) and by dataset split:
+      - training (1981–2005)
+      - validation (2006–2014)
+      - test (2015–2024)
+      - other / full retrospective
+    """
+    if len(years) != len(safeguards) or len(months) != len(safeguards):
+        raise ValueError("Arrays must have identical lengths.")
+
+    by_month = {m: {"total": 0, "safeguards_triggered": 0, "breakdown": {}} for m in range(1, 13)}
+    by_split = {
+        "train": {"years": list(train_range), "total": 0, "safeguards_triggered": 0, "breakdown": {}},
+        "validation": {"years": list(val_range), "total": 0, "safeguards_triggered": 0, "breakdown": {}},
+        "test": {"years": list(test_range), "total": 0, "safeguards_triggered": 0, "breakdown": {}},
+        "other": {"total": 0, "safeguards_triggered": 0, "breakdown": {}}
+    }
+
+    for y, m, g in zip(years, months, safeguards):
+        m = int(m)
+        y = int(y)
+        is_safeguard = (g not in ("NONE", "NAN_INPUT"))
+
+        if 1 <= m <= 12:
+            by_month[m]["total"] += 1
+            if is_safeguard:
+                by_month[m]["safeguards_triggered"] += 1
+            by_month[m]["breakdown"][g] = by_month[m]["breakdown"].get(g, 0) + 1
+
+        if train_range[0] <= y <= train_range[1]:
+            s_key = "train"
+        elif val_range[0] <= y <= val_range[1]:
+            s_key = "validation"
+        elif test_range[0] <= y <= test_range[1]:
+            s_key = "test"
+        else:
+            s_key = "other"
+
+        by_split[s_key]["total"] += 1
+        if is_safeguard:
+            by_split[s_key]["safeguards_triggered"] += 1
+        by_split[s_key]["breakdown"][g] = by_split[s_key]["breakdown"].get(g, 0) + 1
+
+    return {
+        "by_calendar_month": by_month,
+        "by_dataset_split": by_split,
+        "total_timesteps": len(safeguards),
+        "total_safeguards_triggered": sum(1 for g in safeguards if g not in ("NONE", "NAN_INPUT"))
+    }
+
+
 def check_glo_goodness_of_fit(
     sample_data: np.ndarray,
     xi: float,
@@ -803,10 +1085,23 @@ def generate_four_tier_spei_targets(
     drought_test_events = int(np.sum((spei3_test <= drought_threshold) & np.isfinite(spei3_test)))
     non_drought_test_events = n_test_total - drought_test_events
 
+    # Tail safeguard cap sensitivity analysis: compare operational +/- 5.0 cap with exact log-CDF/survival
+    test_vals = d_seasonal_series[(years >= test_range[0]) & (years <= test_range[1])]
+    cap_sens_test = compare_safeguard_cap_vs_robust_log_transformation(
+        test_vals, xi_train, alpha_train, k_train, operational_cap=5.0
+    )
+    val_vals = d_seasonal_series[(years >= val_range[0]) & (years <= val_range[1])]
+    cap_sens_val = compare_safeguard_cap_vs_robust_log_transformation(
+        val_vals, xi_train, alpha_train, k_train, operational_cap=5.0
+    )
+    cap_sens_train = compare_safeguard_cap_vs_robust_log_transformation(
+        train_vals, xi_train, alpha_train, k_train, operational_cap=5.0
+    )
+
     # Categorical classification invariance check under tail safeguards:
     # Since drought thresholds (-1.0, -1.5, -2.0) are well inside [-5.0, 5.0],
     # capping extreme probabilities (p <= 0 -> z = -5.0) cannot flip any drought classification.
-    classification_invariance = True
+    classification_invariance = cap_sens_test.get("classification_invariant_across_all_thresholds", True)
 
     return {
         "status": "SUCCESS",
@@ -830,6 +1125,7 @@ def generate_four_tier_spei_targets(
                 "probabilities": p_train.tolist(),
                 "safeguards": g_train,
                 "safeguard_summary": summarize_safeguard_occurrences(g_train),
+                "safeguard_cap_sensitivity": cap_sens_train,
                 "parameters": {
                     "xi": xi_train, "alpha": alpha_train, "k": k_train, "n": len(train_vals),
                     "bootstrap_uncertainty": train_se
@@ -840,21 +1136,25 @@ def generate_four_tier_spei_targets(
                 "description": "Standardized on validation holdout (2006–2014, N=9) using frozen 1981–2005 parameters",
                 "calibration_period": list(train_range),
                 "parameter_status": "FROZEN_AT_TRAINING_END",
+                "frozen_parameter_guarantee": "Frozen 1981–2005 training parameters used; zero validation data used for estimation.",
                 "years": [int(y) for y in val_years],
                 "values": spei3_val.tolist(),
                 "probabilities": p_val.tolist(),
                 "safeguards": g_val,
-                "safeguard_summary": summarize_safeguard_occurrences(g_val)
+                "safeguard_summary": summarize_safeguard_occurrences(g_val),
+                "safeguard_cap_sensitivity": cap_sens_val
             },
             "spei3_test": {
                 "description": "PRIMARY test target (2015–2024, N=10) standardized with frozen 1981–2005 parameters",
                 "calibration_period": list(train_range),
                 "parameter_status": "FROZEN_BEFORE_EVALUATION",
+                "frozen_parameter_guarantee": "The forecast model must strictly use the frozen training-calibration parameters to transform all validation and test targets. The expanded calibration is a separate sensitivity analysis, not a replacement test target chosen after examining performance.",
                 "years": [int(y) for y in test_years],
                 "values": spei3_test.tolist(),
                 "probabilities": p_test.tolist(),
                 "safeguards": g_test,
                 "safeguard_summary": summarize_safeguard_occurrences(g_test),
+                "safeguard_cap_sensitivity": cap_sens_test,
                 "drought_threshold": drought_threshold,
                 "sample_size_qualification": {
                     "n_total": n_test_total,
@@ -868,6 +1168,7 @@ def generate_four_tier_spei_targets(
                 "description": "SENSITIVITY test target (2015–2024, N=10) calibrated on 1981–2014 (N=34)",
                 "calibration_period": [train_range[0], val_range[1]],
                 "parameter_status": "PRE_TEST_EXPANDED_SENSITIVITY",
+                "role": "Auxiliary sensitivity analysis to quantify stability under pre-test recalibration; NOT a replacement for the frozen primary test target.",
                 "years": [int(y) for y in test_years],
                 "values": spei3_test_sens.tolist(),
                 "probabilities": p_test_sens.tolist(),
@@ -975,7 +1276,10 @@ def calculate_rolling_spei(
 
     # 2. Fit and standardize month-by-month
     spei_out = np.full(n_total, np.nan, dtype=np.float64)
+    prob_raw = np.full(n_total, np.nan, dtype=np.float64)
+    safeguards = ["NAN_INPUT"] * n_total
     params_by_month = {}
+    diagnostics_by_month = {}
     calib_start, calib_end = calibration_period
 
     for m in range(1, 13):
@@ -990,19 +1294,32 @@ def calculate_rolling_spei(
             )
 
         xi, alpha, k = fit_generalized_logistic_l_moments(calib_vals, min_samples=min_calibration_years)
+        diag = check_glo_goodness_of_fit(calib_vals, xi, alpha, k)
         params_by_month[m] = {"xi": xi, "alpha": alpha, "k": k, "n_calib": len(calib_vals)}
+        diagnostics_by_month[m] = diag
 
         # Standardize all timesteps corresponding to calendar month m
         for idx in np.where(m_mask)[0]:
             val = d_rolling[idx]
             if math.isfinite(val):
                 prob = cdf_generalized_logistic(val, xi, alpha, k)
-                spei_out[idx] = compute_standardized_z_score(prob)
+                z, guard = compute_standardized_z_score(prob, return_safeguard=True)
+                prob_raw[idx] = prob
+                spei_out[idx] = z
+                safeguards[idx] = guard
+            else:
+                safeguards[idx] = "NAN_INPUT"
+
+    safeguard_summary = summarize_safeguards_by_month_and_split(years, months, safeguards)
 
     return {
         "spei": spei_out,
+        "prob_raw": prob_raw,
+        "safeguards": safeguards,
         "d_rolling": d_rolling,
         "params_by_month": params_by_month,
+        "diagnostics_by_month": diagnostics_by_month,
+        "safeguard_summary": safeguard_summary,
         "scale": scale,
         "calibration_period": list(calibration_period),
         "status": "SUCCESS"

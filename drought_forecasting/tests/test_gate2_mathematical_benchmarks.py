@@ -26,14 +26,20 @@ from agriminds.climate.spei_calculator import (
     calculate_hargreaves_daily_pet,
     calculate_hargreaves_monthly_pet_from_daily,
     calculate_hargreaves_pet,
+    calculate_rolling_spei,
     cdf_gamma_spi,
     cdf_generalized_logistic,
     check_glo_goodness_of_fit,
+    compare_safeguard_cap_vs_robust_log_transformation,
+    compute_robust_glo_z_score,
     compute_standardized_z_score,
     fit_gamma_spi,
     fit_generalized_logistic_l_moments,
     generate_four_tier_spei_targets,
+    log_cdf_generalized_logistic,
+    log_survival_generalized_logistic,
     summarize_safeguard_occurrences,
+    summarize_safeguards_by_month_and_split,
 )
 
 FIXTURES_PATH = Path(__file__).resolve().parent / "fixtures" / "r_spei_lmom_reference_benchmark.json"
@@ -492,4 +498,196 @@ def test_endpoint_safeguard_categorical_invariance():
         is_mild_capped = (z_capped <= -1.0)
         is_mild_asympt = (z_asymptotic <= -1.0)
         assert is_mild_capped == is_mild_asympt, f"Mismatch at p={p}"
+
+
+def test_hargreaves_published_reference_direct_calculation():
+    """
+    Independently verifies Hargreaves ET0 against published FAO-56 reference values
+    using directly supplied extraterrestrial radiation, completely bypassing internal
+    solar radiation helper functions.
+
+    Published Reference 1 (Allen et al. 1998 FAO-56 Table 2.6 & Example 14):
+      - Lat 45°N, Julian day 145 (May 25).
+      - Published Ra = 40.5 MJ m^-2 day^-1 (Ra_eq = 16.5 mm day^-1).
+      - T_max = 26.6°C, T_min = 14.8°C (T_mean = 20.7°C, DTR = 11.8°C).
+      - Published analytical ET0:
+          ET0 = 0.0023 * (0.408 * 40.5) * (20.7 + 17.8) * sqrt(11.8) = 5.03 mm/day.
+      - With Ra_eq = 16.5 mm/day:
+          ET0 = 0.0023 * 16.5 * (20.7 + 17.8) * sqrt(11.8) = 5.02 mm/day.
+
+    Published Reference 2 (Tropical Tekeze Basin Analog):
+      - Lat 13°N, Julian day 196 (July 15).
+      - Published Ra = 37.9 MJ m^-2 day^-1.
+      - T_max = 31.0°C, T_min = 19.0°C (T_mean = 25.0°C, DTR = 12.0°C).
+      - Published analytical ET0:
+          ET0 = 0.0023 * (0.408 * 37.9) * (25.0 + 17.8) * sqrt(12.0) = 5.28 mm/day.
+    """
+    # Test 1a: Direct call with user-supplied ra_mj (40.5 MJ m^-2 day^-1)
+    pet_mj = calculate_hargreaves_daily_pet(
+        t_max_c=26.6, t_min_c=14.8, latitude_deg=45.0, day_of_year=145, ra_mj=40.5
+    )
+    assert pet_mj == pytest.approx(5.03, abs=0.02)
+
+    # Test 1b: Direct call with user-supplied ra_mm_day (16.5 mm/day)
+    pet_mm = calculate_hargreaves_daily_pet(
+        t_max_c=26.6, t_min_c=14.8, latitude_deg=45.0, day_of_year=145, ra_mm_day=16.5
+    )
+    assert pet_mm == pytest.approx(5.02, abs=0.02)
+
+    # Test 2: Direct call for tropical Tekeze analog (13°N)
+    pet_trop_direct = calculate_hargreaves_daily_pet(
+        t_max_c=31.0, t_min_c=19.0, latitude_deg=13.0, day_of_year=196, ra_mj=37.9
+    )
+    assert pet_trop_direct == pytest.approx(5.28, abs=0.02)
+
+    # Test 3: Monthly calculation with user-supplied radiation
+    pet_month = calculate_hargreaves_pet(
+        t_max_c=26.6, t_min_c=14.8, t_mean_c=20.7, latitude_deg=45.0, month=5, days_in_month=31, ra_mj=40.5
+    )
+    assert pet_month == pytest.approx(5.03 * 31, abs=0.5)
+
+
+def test_glo_log_cdf_and_robust_z_score():
+    """
+    Verify numerical stability and asymptotic accuracy of log-CDF, log-survival,
+    and uncapped robust z-score transformation via scipy.special.ndtri_exp.
+    """
+    xi, alpha, k = 10.0, 15.0, -0.15
+    lower_bound = xi + alpha / k  # -90.0
+
+    # Inside support normal range (x = 20.0)
+    log_p = log_cdf_generalized_logistic(20.0, xi, alpha, k)
+    p_direct = cdf_generalized_logistic(20.0, xi, alpha, k)
+    assert math.exp(log_p) == pytest.approx(p_direct, rel=1e-8)
+
+    # Survival function identity: exp(log_p) + exp(log_s) == 1.0
+    log_s = log_survival_generalized_logistic(20.0, xi, alpha, k)
+    assert (math.exp(log_p) + math.exp(log_s)) == pytest.approx(1.0, rel=1e-7)
+
+    # Robust score matches standard z-score in central domain
+    z_robust, flag_r = compute_robust_glo_z_score(20.0, xi, alpha, k)
+    z_std, flag_s = compute_standardized_z_score(p_direct, return_safeguard=True)
+    assert z_robust == pytest.approx(z_std, abs=1e-5)
+    assert flag_s == "NONE"
+
+    # Extreme lower tail approaching support bound
+    x_tail = lower_bound + 5.0  # -85.0
+    log_p_tail = log_cdf_generalized_logistic(x_tail, xi, alpha, k)
+    assert log_p_tail < -15.0
+    z_tail, flag_tail = compute_robust_glo_z_score(x_tail, xi, alpha, k, extended_tail_bound=10.0)
+    assert z_tail < -5.0  # Extends past the 5.0 operational cap without clipping (~ -5.87)
+    assert flag_tail == "EXACT_LOG_CDF"
+
+    # Deep tail near bound (x = lower_bound + 0.01 -> z ~ -10.78)
+    x_near_bound = lower_bound + 0.01
+    z_ext_15, flag_ext_15 = compute_robust_glo_z_score(x_near_bound, xi, alpha, k, extended_tail_bound=15.0)
+    assert z_ext_15 < -10.0
+    assert flag_ext_15 == "EXACT_LOG_CDF"
+
+    z_ext_10, flag_ext_10 = compute_robust_glo_z_score(x_near_bound, xi, alpha, k, extended_tail_bound=10.0)
+    assert z_ext_10 == -10.0
+    assert flag_ext_10 == "EXTENDED_LOWER_CLAMP"
+
+    # Outside support (x <= lower_bound for k < 0)
+    x_outside = lower_bound - 5.0
+    assert log_cdf_generalized_logistic(x_outside, xi, alpha, k) == -float("inf")
+    z_outside, flag_out = compute_robust_glo_z_score(x_outside, xi, alpha, k, extended_tail_bound=10.0)
+    assert z_outside == -10.0
+    assert flag_out == "LOWER_SUPPORT_LIMIT"
+
+
+def test_compare_safeguard_cap_vs_robust_log_transformation_synthetic():
+    """
+    Run sensitivity analysis comparing the +/- 5.0 operational cap against
+    the uncapped robust log-CDF transformation across a 50-year sample.
+    """
+    np.random.seed(777)
+    # Generate 50-year synthetic water balance series with tail outliers
+    n_years = 50
+    normal_part = np.random.normal(loc=25.0, scale=40.0, size=n_years - 4)
+    extreme_outliers = np.array([-180.0, -120.0, 160.0, 210.0])
+    d_series = np.concatenate([normal_part, extreme_outliers])
+
+    xi, alpha, k = fit_generalized_logistic_l_moments(d_series)
+
+    res = compare_safeguard_cap_vs_robust_log_transformation(
+        d_series, xi, alpha, k, operational_cap=5.0, drought_thresholds=(-1.0, -1.5, -2.0, -2.5)
+    )
+
+    assert res["status"] == "SUCCESS"
+    assert res["n_samples"] == 50
+    # Invariance: Capping extreme tails at +/- 5.0 must NOT alter any drought classification
+    assert res["classification_invariant_across_all_thresholds"] is True
+    # Within valid range (|z| < 4.9), discrepancy between capped and robust score is virtually zero (< 1e-4)
+    assert res["max_in_range_abs_diff"] < 1e-4
+    # Check that thresholds evaluations are present
+    assert "threshold_-1.0" in res["threshold_evaluations"]
+    assert "threshold_-2.0" in res["threshold_evaluations"]
+
+
+def test_summarize_safeguards_by_month_and_split():
+    """Verify safeguard summary by calendar month and dataset split."""
+    years = np.array([1985] * 12 + [2010] * 12 + [2020] * 12)
+    months = np.array(list(range(1, 13)) * 3)
+    guards = ["NONE"] * 36
+    guards[0] = "LOWER_ENDPOINT_SAFEGUARD"  # Jan 1985 (train)
+    guards[14] = "UPPER_TAIL_CLAMP"          # Mar 2010 (validation)
+    guards[35] = "LOWER_TAIL_CLAMP"          # Dec 2020 (test)
+
+    summary = summarize_safeguards_by_month_and_split(
+        years, months, guards, train_range=(1981, 2005), val_range=(2006, 2014), test_range=(2015, 2024)
+    )
+
+    assert summary["total_timesteps"] == 36
+    assert summary["total_safeguards_triggered"] == 3
+
+    # Check split tallies
+    assert summary["by_dataset_split"]["train"]["safeguards_triggered"] == 1
+    assert summary["by_dataset_split"]["validation"]["safeguards_triggered"] == 1
+    assert summary["by_dataset_split"]["test"]["safeguards_triggered"] == 1
+
+    # Check month tallies
+    assert summary["by_calendar_month"][1]["safeguards_triggered"] == 1   # Jan
+    assert summary["by_calendar_month"][3]["safeguards_triggered"] == 1   # Mar
+    assert summary["by_calendar_month"][12]["safeguards_triggered"] == 1  # Dec
+    assert summary["by_calendar_month"][2]["safeguards_triggered"] == 0   # Feb
+
+
+def test_rolling_spei_diagnostics_and_safeguards():
+    """
+    Verify that calculate_rolling_spei computes goodness-of-fit diagnostics
+    and support checks for each of the 12 calendar months, and tracks safeguards.
+    """
+    np.random.seed(42)
+    n_years = 30
+    total_months = n_years * 12
+    years = np.repeat(np.arange(1991, 2021), 12)
+    months = np.tile(np.arange(1, 13), n_years)
+
+    # Monthly synthetic water balance D = P - PET
+    d_monthly = np.random.normal(loc=10.0, scale=35.0, size=total_months)
+
+    res = calculate_rolling_spei(d_monthly, years, months, scale=3, calibration_period=(1991, 2020))
+
+    assert res["status"] == "SUCCESS"
+    assert len(res["spei"]) == total_months
+    assert len(res["prob_raw"]) == total_months
+    assert len(res["safeguards"]) == total_months
+
+    # Check 12 calendar month diagnostics
+    diag_by_m = res["diagnostics_by_month"]
+    assert len(diag_by_m) == 12
+    for m in range(1, 13):
+        assert m in diag_by_m
+        d_diag = diag_by_m[m]
+        assert "kolmogorov_smirnov" in d_diag
+        assert math.isfinite(d_diag["kolmogorov_smirnov"]["statistic"])
+        assert d_diag["support_type"] in ("unbounded", "upper_bounded", "lower_bounded")
+        assert d_diag["support_violations_count"] == 0
+
+    # Check safeguard summary by month and split
+    summary = res["safeguard_summary"]
+    assert summary["total_timesteps"] == total_months
+    assert len(summary["by_calendar_month"]) == 12
+
 
