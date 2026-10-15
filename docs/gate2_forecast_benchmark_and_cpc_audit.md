@@ -1,114 +1,117 @@
-# Scientific Audit: Canonical Forecast Ablation, Spatial Extraction & Temporal Alignment
+# Scientific Audit: Canonical Forecast Benchmark, Spatial Extraction & Temporal Evaluation
 
 **Study Area:** Tanqua Abergele Woreda & Tekezé River Basin, Northern Ethiopia  
-**Target Metric:** 3-Month Standardized Precipitation Index ($\text{SPI-3}$)  
-**Evaluation Window:** 2016-01 to 2023-12 (Exactly 96 Continuous Holdout Calendar Months)  
-**Historical Training Period:** 1981-03 to 2015-12 (418 Continuous Historical Months)  
-**Canonical Predictions File:** [`data/processed/canonical_benchmark_holdout_predictions.csv`](file:///c:/Users/User/Desktop/AgriMinds/data/processed/canonical_benchmark_holdout_predictions.csv)  
+**Primary Target Metric:** 3-Month Standardized Precipitation Index ($\text{SPI-3}$)  
+**Complementary Benchmark Target:** Future Monthly Rainfall Anomaly ($P_{t+h} - \bar{P}_{\text{month}}$, mm)  
+**Boundary Provenance:** Official Ethiopia National Administrative Boundaries (CSA/EDRI, EPSG:4326, SHA-256: `90BB8FFF...E22B`)  
+**Evaluation Windows:**
+1. *Fixed-Holdout Ablation:* 2016-01 to 2023-12 (96 continuous months, pre-2016 fixed training baseline, $\alpha=2.0$).
+2. *Retrospective Walk-Forward Evaluation:* 2017-01 to 2024-12 (96 continuous months, dynamic expanding-window updating, lead-specific validated $\alpha$).  
 **Governance Standard:** Gate 1 & Gate 2 Scientific Quality Standards, Strictly Zero Synthetic Data Rule  
 
 ---
 
 ## Executive Summary & Core Scientific Insights
 
-1. **A Canonical Predictions File for 100% Metric Reproducibility:**
-   - To eliminate any internal inconsistency, every single holdout forecast across all horizons $h \in \{1, 2, 3\}$ and all models (M0 through M6) is saved in [`data/processed/canonical_benchmark_holdout_predictions.csv`](file:///c:/Users/User/Desktop/AgriMinds/data/processed/canonical_benchmark_holdout_predictions.csv) ($288$ rows = $96\text{ months} \times 3\text{ leads}$).
-   - Every metric, table, seasonal MSE decomposition, and paired year-block bootstrap interval is reproduced directly from this single canonical holdout dataset.
+1. **Two Distinct Experimental Paradigms:**
+   - **Experiment 1 (Fixed-Holdout Ablation, 2016–2023):** Evaluates performance under a static historical training design ($1981\text{-}03$ to $2015\text{-}12$, 418 continuous months) with fixed Ridge shrinkage ($\alpha=2.0$).
+   - **Experiment 2 (Expanding-Window Walk-Forward, 2017–2024):** Evaluates performance under a simulated operational updating process, where models are re-fitted at each monthly forecast origin $t$ strictly on observed historical pairs ($\tau + h \le t$), using lead-specific regularization parameters selected during validation ($2011\text{--}2016$).
+   - *Designation Note:* The 2017–2024 period is properly designated as a **withheld retrospective walk-forward evaluation period**, not an untouched blind test set, because prior exploratory experiments informed iterative model development.
 
-2. **Clean Ocean Basin Ablation Experiment (M0 through M6):**
-   - **M0 (Climatological Mean, $\text{RMSE} = 0.9267$):** True reference standard.
-   - **M1 (Persistence, $\text{Lagged SPI-3}_{t-h}$):** Decays rapidly from $\text{RMSE} = 0.8910$ ($r = 0.525$) at Lead 1, to $1.1548$ at Lead 2, and collapses to $1.3693$ ($r = -0.127$) at Lead 3.
-   - **M2 (Local Climate Model, $\text{M1} + \text{seasonality}$):** Substantially improves over persistence ($\text{RMSE} = 0.7918$ at Lead 1, $0.9145$ at Lead 2).
-   - **M3 (Pacific / ENSO Informed):** **Adds NO incremental predictive skill** at any lead time. At Lead 1, adding Niño 3.4 increases RMSE to $0.7934$ (worse than Local AR). At Lead 3, correlation turns negative ($r = -0.180$).
-   - **M4 (Indian Ocean / IOD Informed):** **The ONLY ocean basin showing positive incremental skill**. At Lead 1, drops RMSE to $0.7807$ ($r = 0.540$, $p = 0.061$). At Lead 2, achieves the lowest RMSE of any model ($0.8968$, $r = 0.247$).
-   - **M5 (Atlantic Gradient Informed):** Shows negligible impact on RMSE ($0.7915$ vs $0.7918$).
-   - **M6 (All Three Oceans Coupled):** At Lead 2, M6 ($\text{RMSE} = 0.8989$) performs **worse than Indian Ocean alone (M4, $\text{RMSE} = 0.8968$)**, because adding noisy Pacific and Atlantic predictors introduces parameter estimation variance.
+2. **Ocean Basin Teleconnection Findings:**
+   - **Indian Ocean Dipole (IOD DMI):** The strongest single-ocean candidate across both evaluation regimes. In the rolling-origin evaluation, Model $M_4$ achieves $\text{RMSE} = 0.9010$ at Lead 2 (vs Local AR $M_2$ $\text{RMSE} = 0.9203$, $\Delta\text{RMSE} = -0.0193$, 95% CI: $[-0.0355, -0.0023]$) and $\text{RMSE} = 0.9362$ at Lead 3 (vs $M_2$ $0.9474$, $\Delta\text{RMSE} = -0.0112$, 95% CI: $[-0.0202, -0.0008]$). However, at Lead 1, the 95% confidence intervals straddle zero in both experiments ($[-0.0243, +0.0004]$ in fixed holdout, $[-0.0262, +0.0034]$ in rolling origin), so an incremental advantage over local autoregression is not established at the 95% confidence level.
+   - **Multi-Ocean Coupling ($M_6$) vs Single Basin ($M_4$):** Adding Pacific and Atlantic predictors did not demonstrate a consistent, statistically robust improvement over Indian Ocean information alone. At Lead 2, $M_6$ has higher point error than $M_4$ ($0.9057$ vs $0.9010$); at Lead 3, point estimates are virtually indistinguishable ($0.9361$ vs $0.9362$), with overlapping uncertainty intervals.
+   - **Pacific ENSO (Niño 3.4):** Across both evaluation designs, linear regression on Niño 3.4 consistently adds noise rather than predictive skill ($\Delta\text{RMSE} \ge 0$).
+   - **Lead 3 Correlation Caution:** The rolling-origin $M_4$ correlation at Lead 3 ($r = +0.0578$) is near-zero. Although numerically positive, that fact alone does not demonstrate predictive skill; comparisons against climatology and local autoregression with uncertainty intervals remain the appropriate benchmark.
 
-3. **Spatial Extraction & Polygon Delineation Audit:**
-   - Verified that extraction uses the **true official 16-kebele Tanqua Abergele Woreda MultiPolygon** ($0.11993\text{ sq deg}$, approx $1,420\text{ km}^2$), NOT a rectangular bounding box.
-   - The woreda fills only **$58.41\%$ of its rectangular bounding box** ($0.20534\text{ sq deg}$). Bounding-box extraction would include $41.59\%$ spurious land area outside the woreda.
-   - Exact intersection isolates **71 discrete $0.05^\circ$ CHIRPS raster cells** (rows 527–536, cols 1172–1181) with $\cos(\text{lat}_{\text{center}})$ spherical weighting.
+3. **Target Sensitivity: Overlapping $\text{SPI-3}$ vs Pure Future Monthly Rainfall Anomaly:**
+   - In a complementary benchmark predicting **pure future 1-month rainfall anomalies** ($y_{t+h} = P_{t+h} - \bar{P}_{\text{month}}$, zero window overlap across all leads):
+     - Zero-anomaly Climatology achieves $\text{RMSE} = 26.93\text{ mm}$.
+     - None of the linear statistical models (local AR or ocean basins) beats Climatology out-of-sample ($\text{RMSE} = 26.94\text{ to } 28.26\text{ mm}$, negative correlations).
+   - *Defensible Scientific Conclusion:* The results are consistent with overlapping rainfall windows contributing substantially to short-lead $\text{SPI-3}$ prediction skill. The current experiments do not demonstrate corresponding skill for future monthly rainfall anomalies.
 
-4. **Complete 100% Seasonal MSE Decomposition:**
-   - Evaluated across all 96 holdout months (no missing transition months).
-   - Confirms that at Lead 2 and Lead 3, the multi-ocean model has **positive $\Delta\text{MSE}$ (higher error than Climatology)** in every single rainy season and transition month (Kiremt JAS, Belg MAM, Transition Feb, Transition Jun).
-   - The apparent pooled error reduction is generated entirely during the **Bega dry season (Oct–Jan)**, when rainfall is negligible and agricultural vulnerability is low.
+4. **Seasonal Error Decomposition & Statistical Gain:**
+   - Seasonal MSE partitioning demonstrates that the pooled error reduction of multi-ocean forecasts at Lead 2 is generated during the **Bega season (Oct–Jan)**. During the main Kiremt monsoon (JAS), Belg rains (MAM), and transition months, ocean model errors exceed Climatology.
+   - *Impact Qualification:* Bega is identified as the calendar season contributing most to the pooled statistical gain; this finding describes statistical error timing and does not make claims regarding agricultural vulnerability.
+
+5. **Spatial Extraction & Mathematical Precision:**
+   - Tanqua Abergele extraction uses the **official 16-kebele MultiPolygon** ($0.11993\text{ sq deg}$, fill fraction $58.41\%$ of bounding box), isolating 71 intersecting $0.05^\circ$ CHIRPS cells.
+   - Planar cosine-latitude weighting was audited against exact authalic spherical integration, confirming an absolute weight difference of $< 10^{-15}$ ($r = 1.0000000000$).
 
 ---
 
-## 1. Clean Forecast Ablation Benchmark (M0 through M6)
+## 1. Experiment 1: Fixed-Holdout Ablation Benchmark (2016–2023)
 
-All models were trained strictly on the pre-2016 baseline ($1981\text{-}03$ to $2015\text{-}12$, 418 continuous months), with standardized features and identical Ridge regularization ($\alpha = 2.0$), evaluated on the exact 96 holdout months (2016-01 to 2023-12).
+All models were trained strictly on the pre-2016 baseline ($1981\text{-}03$ to $2015\text{-}12$, 418 continuous months), with standardized features and identical Ridge regularization ($\alpha = 2.0$), evaluated on the 96 continuous holdout months (2016-01 to 2023-12).
 
 ### Multi-Lead Ablation Performance Summary
 
 | Model | Inputs / Feature Formulation | Lead 1 RMSE ($r$) | Lead 2 RMSE ($r$) | Lead 3 RMSE ($r$) | Primary Scientific Finding |
 | :--- | :--- | :---: | :---: | :---: | :--- |
-| **M0: Climatology** | Historical mean ($E[y] = 0.0$) | 0.9267 (—) | 0.9267 (—) | **0.9267** (—) | Reference standard for zero-skill |
-| **M1: Persistence** | $\text{SPI-3}_{t-h}$ | 0.8910 ($0.525$) | 1.1548 ($0.202$) | 1.3693 ($-0.127$) | Decays as window overlap vanishes |
-| **M2: Local Climate** | $\text{M1} + \sin/\cos(\text{month})$ | 0.7918 ($0.524$) | 0.9145 ($0.198$) | 0.9376 ($-0.143$) | Seasonal cycle stabilizes autoregression |
-| **M3: Pacific Only** | $\text{M2} + \text{Niño 3.4}_{t-h, t-h-6}$ | 0.7934 ($0.522$) | 0.9224 ($0.177$) | 0.9520 ($-0.180$) | **Degrades performance (noise injection)** |
-| **M4: Indian Only** | $\text{M2} + \text{IOD DMI}_{t-h}$ | **0.7807** ($0.540$) | **0.8968** ($0.247$) | **0.9220** ($+0.040$) | **Strongest single ocean teleconnection** |
-| **M5: Atlantic Only** | $\text{M2} + \text{Atlantic Grad}_{t-h}$ | 0.7915 ($0.525$) | 0.9133 ($0.204$) | 0.9331 ($-0.046$) | Minimal incremental value |
-| **M6: All 3 Oceans** | $\text{M2} + \text{Pacific} + \text{Indian} + \text{Atl}$ | 0.7808 ($0.541$) | 0.8989 ($0.244$) | 0.9282 ($+0.021$) | Multi-collinearity degrades M4 skill |
+| **$M_0$: Climatology** | Historical mean ($E[y] = 0.0$) | 0.9267 (—) | 0.9267 (—) | **0.9267** (—) | Reference standard for zero-skill |
+| **$M_1$: Persistence** | $\text{SPI-3}_{t-h}$ | 0.8910 ($0.525$) | 1.1548 ($0.202$) | 1.3693 ($-0.127$) | Decays as window overlap vanishes |
+| **$M_2$: Local Climate** | $M_1 + \sin/\cos(\text{month})$ | 0.7918 ($0.524$) | 0.9145 ($0.198$) | 0.9376 ($-0.143$) | Seasonal cycle stabilizes autoregression |
+| **$M_3$: Pacific Only** | $M_2 + \text{Niño 3.4}_{t-h, t-h-6}$ | 0.7934 ($0.522$) | 0.9224 ($0.177$) | 0.9520 ($-0.180$) | Adds noise; degrades performance |
+| **$M_4$: Indian Only** | $M_2 + \text{IOD DMI}_{t-h}$ | **0.7807** ($0.540$) | **0.8968** ($0.247$) | **0.9220** ($+0.040$) | Strongest single-ocean candidate |
+| **$M_5$: Atlantic Only** | $M_2 + \text{Atlantic Grad}_{t-h}$ | 0.7915 ($0.525$) | 0.9133 ($0.204$) | 0.9331 ($-0.046$) | Minimal incremental value |
+| **$M_6$: All 3 Oceans** | $M_2 + \text{Pacific} + \text{Indian} + \text{Atl}$ | 0.7808 ($0.541$) | 0.8989 ($0.244$) | 0.9282 ($+0.021$) | No robust advantage over $M_4$ alone |
 
 ### Paired Calendar Year-Block Bootstrap Analysis (8 Years Jointly Resampled, B = 2,000, seed = 42)
 
-To evaluate paired differences without assuming independent observations, 8 complete calendar years (2016 to 2023) were resampled jointly with replacement:
+To preserve within-year serial autocorrelation, 8 complete calendar years (2016 to 2023) were resampled jointly with replacement:
 
 $$\Delta\text{RMSE}^* = \text{RMSE}(y^*, \hat{y}_{\text{model}}^*) - \text{RMSE}(y^*, \hat{y}_{\text{baseline}}^*)$$
 
-| Lead Horizon & Comparison | Metric ($\Delta\text{RMSE}$) | 95% Year-Block CI | $P^*(\Delta\text{RMSE}^* \ge 0)$ | Two-Sided Empirical $p$ | Scientific Verdict |
-| :--- | :---: | :---: | :---: | :---: | :--- |
-| **Lead 1m:** | | | | | |
-| • M2 (Local AR) vs M0 (Clim) | **-0.1349** | $[-0.2305, -0.0096]$ | 0.0170 | **0.0340** | **Statistically Significant Skill** |
-| • M4 (Indian) vs M2 (Local AR) | **-0.0111** | $[-0.0243, +0.0004]$ | 0.0305 | **0.0610** | Marginal Significance (Promising) |
-| • M3 (Pacific) vs M2 (Local AR) | **+0.0016** | $[-0.0036, +0.0065]$ | 0.7465 | 0.5070 | No Improvement (Increases Error) |
-| • M6 (All Oceans) vs M2 (Local) | **-0.0110** | $[-0.0317, +0.0047]$ | 0.1415 | 0.2830 | Not Statistically Significant |
-| • M6 (All Oceans) vs M0 (Clim) | **-0.1459** | $[-0.2513, -0.0167]$ | 0.0170 | **0.0340** | Significant vs Climatology |
-| **Lead 2m:** | | | | | |
-| • M4 (Indian) vs M2 (Local AR) | **-0.0177** | $[-0.0521, +0.0051]$ | 0.0820 | 0.1640 | Modest Gain (Not Significant) |
-| • M6 (All Oceans) vs M2 (Local) | **-0.0156** | $[-0.0527, +0.0120]$ | 0.3075 | 0.6150 | Not Statistically Significant |
-| • M6 (All Oceans) vs M0 (Clim) | **-0.0278** | $[-0.0744, +0.0268]$ | 0.1520 | 0.3040 | 95% CI Straddles Zero |
-| **Lead 3m:** | | | | | |
-| • M4 (Indian) vs M0 (Clim) | **-0.0047** | $[-0.0421, +0.0298]$ | 0.3950 | 0.7900 | Indistinguishable from Climatology |
-| • M6 (All Oceans) vs M0 (Clim) | **+0.0015** | $[-0.0404, +0.0344]$ | 0.4220 | 0.8440 | **Zero Skill (Worse than Climatology)** |
-| • M6 (All Oceans) vs M1 (Pers) | **-0.4411** | $[-0.6494, -0.2252]$ | 0.0005 | 0.0010 | Significant over decaying baseline only |
+| Lead Horizon & Comparison | Metric ($\Delta\text{RMSE}$) | 95% Year-Block Confidence Interval | Statistical Inference Interpretation |
+| :--- | :---: | :---: | :--- |
+| **Lead 1 Month ($h=1$):** | | | |
+| • $M_2$ (Local AR) vs $M_0$ (Clim) | **-0.1349** | $[-0.2305, -0.0096]$ | Statistically robust improvement over Climatology |
+| • $M_4$ (Indian) vs $M_2$ (Local AR) | **-0.0111** | $[-0.0243, +0.0004]$ | **Interval includes zero**; improvement not established at 95% level |
+| • $M_3$ (Pacific) vs $M_2$ (Local AR) | **+0.0016** | $[-0.0036, +0.0065]$ | Interval straddles zero; point estimate adds error |
+| • $M_6$ (All Oceans) vs $M_2$ (Local) | **-0.0110** | $[-0.0317, +0.0047]$ | Interval includes zero; no robust advantage over Local AR |
+| • $M_6$ (All Oceans) vs $M_0$ (Clim) | **-0.1459** | $[-0.2513, -0.0167]$ | Statistically robust improvement over Climatology |
+| **Lead 2 Months ($h=2$):** | | | |
+| • $M_4$ (Indian) vs $M_2$ (Local AR) | **-0.0177** | $[-0.0521, +0.0051]$ | **Interval includes zero**; suggestive point gain, not significant |
+| • $M_6$ (All Oceans) vs $M_2$ (Local) | **-0.0156** | $[-0.0527, +0.0120]$ | Interval includes zero; inconclusive |
+| • $M_6$ (All Oceans) vs $M_0$ (Clim) | **-0.0278** | $[-0.0744, +0.0268]$ | Interval includes zero; indistinguishable from Climatology |
+| **Lead 3 Months ($h=3$):** | | | |
+| • $M_4$ (Indian) vs $M_0$ (Clim) | **-0.0047** | $[-0.0421, +0.0298]$ | Interval includes zero; indistinguishable from Climatology |
+| • $M_6$ (All Oceans) vs $M_0$ (Clim) | **+0.0015** | $[-0.0404, +0.0344]$ | Interval includes zero; point estimate worse than Climatology |
+| • $M_6$ (All Oceans) vs $M_1$ (Pers) | **-0.4411** | $[-0.6494, -0.2252]$ | Substantial error reduction against decaying persistence |
 
-*Note: $P^*(\Delta\text{RMSE}^* \ge 0)$ represents the empirical fraction of bootstrap resamples where the model fails to improve over the baseline. Two-sided empirical $p$-value is $2 \times \min(P^*, 1 - P^*)$.*
+*Note on Bootstrap Inference:* The bootstrap distribution is centered on the sample difference $\widehat{\Delta\text{RMSE}}$ and reflects estimation uncertainty under calendar-year dependence. Where intervals include zero, the evidence does not establish a clear directional difference at the stated 95% confidence level.
 
 ---
 
 ## 2. Spatial Extraction & Geometry Verification
 
-To verify that the precipitation series reflects Tanqua Abergele Woreda rather than an arbitrary bounding box, the geometry and raster mapping were audited:
-
-### Geometry Parameters
-- **Data Source:** `data/spatial/processed/tekeze_basin_kebeles_intersected.geojson` (Official CSA/ECA 2007/2013 administrative boundaries).
-- **Aggregated Units:** Exactly 16 discrete kebele polygons within Tanqua Abergele Woreda aggregated via `shapely.ops.unary_union`.
+### Boundary Provenance & Administrative Delineation
+- **Official Data Source:** Ethiopia National Administrative Boundaries FeatureServer (Central Statistical Agency / OCHA / EDRI).
 - **Coordinate Reference System (CRS):** Geographic WGS84 (EPSG:4326).
-- **Bounding Box:** Longitude $[38.6350^\circ\text{E}, 39.0942^\circ\text{E}]$, Latitude $[13.1690^\circ\text{N}, 13.6162^\circ\text{N}]$.
+- **Boundary File:** `data/spatial/processed/tekeze_basin_kebeles_intersected.geojson` (SHA-256 Checksum: `90BB8FFF778EBCCA37034858108EC30873E1BA36B7636C029EF003686C04E22B`).
+- **Aggregated Units:** Exactly 16 discrete kebele polygons within Tanqua Abergele Woreda aggregated via `shapely.ops.unary_union`.
 - **True Polygon Area:** **$0.11993\text{ sq deg}$** (approx $1,420\text{ km}^2$).
 - **Bounding Box Area:** **$0.20534\text{ sq deg}$**.
-- **Polygon Fill Ratio:** **$58.41\%$**. Naive rectangular extraction includes $41.59\%$ spurious area from adjacent woredas (Kola Tembien, Seharti Samre, Naeder Adet).
+- **Polygon Fill Ratio:** **$58.41\%$**. Naive rectangular extraction includes $41.59\%$ spurious land area from adjacent woredas (Kola Tembien, Seharti Samre, Naeder Adet).
 
-### Raster Georeferencing & Intersection Kernel
-- **CHIRPS Africa Raster Specification:** Origin $(-20.0^\circ\text{E}, 40.0^\circ\text{N})$, Pixel Scale $0.05^\circ \times 0.05^\circ$, Array size $1500 \times 1600$.
-- **Intersecting Grid Cells:** Exactly **71 discrete $0.05^\circ$ cells** (row indices 527–536, column indices 1172–1181).
-- **Weighting Formula:** $w_{r, c} = \text{Area}(P_{r, c} \cap \text{Polygon}) \times \cos(\text{lat}_{\text{center}})$.
-- **Catchment Comparison:**
-  - Tanqua Abergele Woreda Mean Monthly Precipitation: $63.48\text{ mm/mo}$ ($761.75\text{ mm/yr}$).
-  - Complete Tekezé River Basin Catchment Mean: $72.23\text{ mm/mo}$ ($866.76\text{ mm/yr}$).
-  - Pearson correlation across 528 months: $r = 0.9761$.
+### Mathematical Audit: Planar Cosine vs Exact Spherical Authalic Area Weighting
+CHIRPS Africa grid cells ($0.05^\circ \times 0.05^\circ$) were intersected with the woreda MultiPolygon, isolating **71 discrete grid cells** (row indices 527–536, column indices 1172–1181). We audited the planar cosine approximation against exact authalic spherical integration:
+$$\text{Area}_{\text{authalic}} = R^2 \Delta\lambda (\sin\phi_{\text{top}} - \sin\phi_{\text{bot}})$$
+- **Max Absolute Weight Difference:** **$5.24 \times 10^{-16}$** (machine precision).
+- **Correlation Between Weighting Schemes:** **$r = 1.0000000000$**.
+- *Mathematical Explanation:* Because $\Delta\phi = 0.05^\circ$ ($0.000873\text{ rad}$) is identical across all grid cells, the second-order term $\sin(\Delta\phi/2) / (\Delta\phi/2) \approx 1 - (\Delta\phi)^2 / 24$ is constant to within $3 \times 10^{-8}$ and cancels out completely upon normalization. Planar cosine weighting is mathematically equivalent to authalic spherical weighting for this domain.
+
+### Basin vs Woreda Distinction
+- Tanqua Abergele Mean Monthly Precipitation: $63.48\text{ mm/mo}$ ($761.75\text{ mm/yr}$).
+- Complete Tekezé River Basin Mean Monthly Precipitation: $72.23\text{ mm/mo}$ ($866.76\text{ mm/yr}$).
+- While the two series are correlated across 528 months ($r = 0.9761$), they represent distinct hydrological scales. Tanqua Abergele woreda polygon extraction is maintained as the primary target.
 
 ---
 
-## 3. Complete 100% Seasonal MSE Decomposition (All 96 Months)
+## 3. Seasonal Additive MSE Decomposition (All 96 Months)
 
-All 96 continuous calendar months (2016–2023) are partitioned without omissions:
-$$\text{MSE}_{\text{total}} = \sum_{s} \frac{N_s}{N} \text{MSE}_s \quad \implies \quad \Delta \text{MSE} = \sum_{s} w_s (\text{MSE}_{\text{ocean}, s} - \text{MSE}_{\text{clim}, s})$$
-
-### Additive Decomposition of M6 (All Oceans) vs M0 (Climatology)
+All 96 holdout months (2016–2023) were partitioned into calendar seasons without omissions:
+$$\Delta \text{MSE} = \sum_{s} w_s (\text{MSE}_{\text{ocean}, s} - \text{MSE}_{\text{clim}, s})$$
 
 | Lead Horizon & Season | Obs ($N_s$) | Weight ($w_s$) | Climatology MSE | Multi-Ocean MSE | Season $\Delta\text{MSE}$ | Weighted Contribution ($w_s \Delta\text{MSE}_s$) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -134,169 +137,109 @@ $$\text{MSE}_{\text{total}} = \sum_{s} \frac{N_s}{N} \text{MSE}_s \quad \implies
 | • Transition: June | 8 | 0.083 | 1.0102 | 1.0671 | **+0.0569** | **+0.0047 (Worse)** |
 | **Total Pooled ($N=96$)** | **96** | **1.000** | **0.8588** | **0.8616** | **+0.0027** | **+0.0027 (Worse)** |
 
-### Mathematical Finding:
-At Lead 2, outside of Bega, **every single rainy season and transition month has higher MSE than Climatology** ($\text{JAS: } +0.0609$, $\text{MAM: } +0.1756$, $\text{Feb: } +0.3309$, $\text{Jun: } +0.0592$). The pooled net difference of $-0.0508$ is driven entirely by the dry Bega winter ($-0.1424$). At Lead 3, the total pooled $\Delta\text{MSE}$ is positive ($+0.0027$), confirming zero skill over climatology.
+### Finding & Impact Qualification:
+At Lead 2, outside of Bega, **every single rainy season and transition month has higher MSE than Climatology** ($\text{JAS: } +0.0609$, $\text{MAM: } +0.1756$, $\text{Feb: } +0.3309$, $\text{Jun: } +0.0592$). The pooled net difference of $-0.0508$ is driven entirely by Bega ($-0.1424$). This demonstrates that pooled statistical metrics can mask degraded accuracy during the main agricultural seasons; this finding describes statistical error timing and does not make claims regarding dry-season agricultural vulnerability.
 
 ---
 
 ## 4. Chronological & Alignment Verification
 
-To confirm that row indexing reflects genuine $t+h$ forecasting without look-ahead:
-1. **Consecutive Order:** All 528 rows of `df_master` are in strict chronological order from 1981-01-01 to 2024-12-01 (frequency: `MS`, monthly start, zero duplicates, zero missing dates).
+1. **Consecutive Order:** All 528 rows of `df_master` are in strict chronological order from 1981-01-01 to 2024-12-01 (frequency: `MS`, monthly start, zero missing dates).
 2. **Causal Alignment:** For holdout month $t$ (e.g. 2016-01) at lead $h=1$, features are queried strictly at index $t-1$ (2015-12). Predictors are strictly causal $X_{\le t-h}$.
-3. **No Filtering Shifts:** The test dataframe is indexed continuously from integer rows $420$ to $515$ ($96$ months). Row operations use absolute position offsets (`indices - h`), guaranteeing that every prediction uses observations from exactly $h$ months prior.
-4. **Target Calculation:** $\text{SPI-3}_t$ is calculated from rainfall up to month $t$. The Gamma distribution parameters $(\alpha_{\text{train}}, \beta_{\text{train}}, p_{0,\text{train}})$ are estimated strictly on pre-2016 historical months ($1981 \le \text{year} < 2016$), preventing test-set calibration leakage.
+3. **SPI-3 Calibration Audit:**
+   - Evaluated using 3-month rolling sums of precipitation.
+   - **Calendar-Month Specificity:** Parameters $(\alpha_m, \beta_m, p_{0,m})$ are fitted **separately for each calendar month $m \in \{1, \dots, 12\}$** to capture month-specific variance and zero-rainfall probabilities.
+   - **Training-Only Estimation:** Calibration parameters are estimated strictly on the pre-2016 historical baseline ($1981 \le \text{year} < 2016$), preventing test-set calibration leakage.
 
 ---
 
-## 5. Atmospheric Bridge & Moisture Transport: Physical Protocol
+## 5. Experiment 2: Retrospective Expanding-Window Walk-Forward Benchmark (2017–2024)
 
-To establish whether the Indian Ocean teleconnection (M4) is physical or spurious:
-$$\text{Indian Ocean DMI / Pacific ENSO} \longrightarrow \text{Regional Wind & Pressure Fields} \longrightarrow \vec{Q} = \frac{1}{g} \int_{p_s}^{p_{\text{top}}} q \vec{v} \, dp \longrightarrow -\nabla \cdot \vec{Q} \longrightarrow \text{Tekezé Rainfall}$$
+- **Evaluation Window:** 2017-01 to 2024-12 (96 continuous months).
+- **Validation Period:** 2011-01 to 2016-12 (used to select Ridge regularization: $\alpha=50.0$ at Lead 1, $\alpha=100.0/500.0$ at Lead 2, $\alpha=500.0$ at Lead 3).
+- **Auditable Prediction Table:** [`data/processed/rolling_origin_walkforward_auditable_predictions_2017_2024.csv`](file:///c:/Users/User/Desktop/AgriMinds/data/processed/rolling_origin_walkforward_auditable_predictions_2017_2024.csv) ($288$ rows).
+- **Independent Verification:** Verified via [`scripts/audit_and_reproduce_rolling_origin.py`](file:///c:/Users/User/Desktop/AgriMinds/scripts/audit_and_reproduce_rolling_origin.py).
 
-### Highlands Elevation Masking Protocol
-- The Tekezé River Basin originates in the Ethiopian Highlands (elevations exceeding 2,500–4,000 m).
-- At high elevations, the surface atmospheric pressure $p_s$ is often between $700\text{ hPa}$ and $800\text{ hPa}$.
-- **Protocol:**
-  1. Standard pressure levels such as $850\text{ hPa}$ lie **below the physical ground surface** across substantial portions of the basin. Reanalysis values at those levels represent fictitious subterranean extrapolation.
-  2. All pressure levels with $p > p_s$ must be explicitly masked out.
-  3. Vertical moisture integration will integrate strictly from true surface pressure upward: $\vec{Q} = \frac{1}{g} \sum_{p_k \le p_s} q_k \vec{v}_k \Delta p_k$.
-  4. Diagnostics will focus on levels remaining strictly above regional topography ($700\text{ hPa}$ and $500\text{ hPa}$), coupled with surface-level fluxes.
+### Audited Rolling-Origin Performance Summary ($\text{SPI-3}$)
+
+| Lead Horizon & Model | Rolling RMSE | MAE | Pearson $r$ | $\Delta\text{RMSE}$ vs Climatology ($M_0$) | $\Delta\text{RMSE}$ vs Local AR ($M_2$) | Paired 8-Year Bootstrap 95% CI vs $M_2$ |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Lead 1 Month ($h=1$):** | | | | | | |
+| • $M_0$: Climatology | 0.9475 | 0.7357 | Undefined (Const 0.0) | Reference (0.0) | — | — |
+| • $M_1$: Persistence | 0.8945 | 0.6651 | 0.5312 | -0.0530 | +0.1034 | $[+0.0401, +0.1712]$ |
+| • $M_2$: Local Climate AR | 0.7911 | 0.5923 | 0.5294 | **-0.1564** | Reference (0.0) | — |
+| • $M_3$: Pacific Informed | 0.7911 | 0.5941 | 0.5303 | -0.1564 | +0.0000 | $[-0.0040, +0.0040]$ |
+| • $M_4$: Indian Ocean (IOD) | **0.7807** | **0.5912** | **0.5405** | **-0.1668** | **-0.0104** | $[-0.0262, +0.0034]$ |
+| • $M_5$: Atlantic Informed | 0.7915 | 0.5925 | 0.5293 | -0.1560 | +0.0004 | $[-0.0019, +0.0025]$ |
+| • $M_6$: All 3 Oceans Coupled | 0.7811 | 0.5961 | 0.5408 | -0.1664 | -0.0100 | $[-0.0311, +0.0063]$ |
+| **Lead 2 Months ($h=2$):** | | | | | | |
+| • $M_0$: Climatology | 0.9475 | 0.7357 | Undefined (Const 0.0) | Reference (0.0) | — | — |
+| • $M_1$: Persistence | 1.1627 | 0.8985 | 0.2066 | +0.2152 | +0.2424 | $[+0.1245, +0.3701]$ |
+| • $M_2$: Local Climate AR | 0.9203 | 0.7328 | 0.2025 | -0.0272 | Reference (0.0) | — |
+| • $M_3$: Pacific Informed | 0.9207 | 0.7294 | 0.2030 | -0.0268 | **+0.0004** | $[-0.0190, +0.0236]$ |
+| • $M_4$: Indian Ocean (IOD) | **0.9010** | **0.7284** | **0.2504** | **-0.0465** | **-0.0193** | $[-0.0355, -0.0023]$ |
+| • $M_5$: Atlantic Informed | 0.9205 | 0.7322 | 0.2046 | -0.0270 | +0.0002 | $[-0.0048, +0.0050]$ |
+| • $M_6$: All 3 Oceans Coupled | 0.9057 | 0.7224 | 0.2522 | -0.0418 | -0.0146 | $[-0.0390, +0.0169]$ |
+| **Lead 3 Months ($h=3$):** | | | | | | |
+| • $M_0$: Climatology | 0.9475 | 0.7357 | Undefined (Const 0.0) | Reference (0.0) | — | — |
+| • $M_1$: Persistence | 1.3885 | 1.0738 | -0.1320 | +0.4410 | +0.4411 | $[+0.2190, +0.6654]$ |
+| • $M_2$: Local Climate AR | 0.9474 | 0.7323 | -0.0974 | -0.0001 | Reference (0.0) | — |
+| • $M_3$: Pacific Informed | 0.9480 | 0.7354 | -0.0665 | +0.0005 | **+0.0006** | $[-0.0080, +0.0093]$ |
+| • $M_4$: Indian Ocean (IOD) | **0.9362** | **0.7273** | **+0.0578** | **-0.0113** | **-0.0112** | $[-0.0202, -0.0008]$ |
+| • $M_5$: Atlantic Informed | 0.9469 | 0.7314 | -0.0542 | -0.0006 | -0.0005 | $[-0.0063, +0.0063]$ |
+| • $M_6$: All 3 Oceans Coupled | 0.9361 | 0.7291 | +0.0632 | -0.0114 | -0.0113 | $[-0.0254, +0.0029]$ |
+
+*Statistical Assessment:*
+- At Lead 1, the 95% bootstrap interval for $M_4$ vs $M_2$ ($[-0.0262, +0.0034]$) includes zero; no statistically robust gain over Local AR is demonstrated.
+- At Lead 2, $M_4$ exhibits lower RMSE than $M_2$ (interval $[-0.0355, -0.0023]$ excludes zero). $M_6$ has higher error than $M_4$ ($0.9057$ vs $0.9010$).
+- At Lead 3, point-estimate RMSEs for $M_4$ ($0.9362$) and $M_6$ ($0.9361$) are virtually identical. The correlation $r = +0.0578$ is near zero and does not establish predictive skill.
 
 ---
 
-## 6. Rolling-Origin Expanding-Window Walk-Forward Benchmark (2017–2024 Untouched Test Set)
+## 6. Complementary Benchmark: Pure Future Monthly Rainfall Anomaly
 
-To prevent lookahead leakage and evaluate whether models adapt out-of-sample over time, an operational machine learning evaluation architecture was executed across the **untouched 2017-01 to 2024-12 period (96 continuous months)**:
-- **Historical Training Window:** 1981-03 to 2010-12 (358 continuous historical months).
-- **Validation & Tuning Window:** 2011-01 to 2016-12 (72 continuous months, used for tuning Ridge regularization $\alpha$).
-- **Untouched Final Test Window:** 2017-01 to 2024-12 (96 continuous months).
-- **Canonical Rolling Predictions:** [`data/processed/rolling_origin_walkforward_predictions_2017_2024.csv`](file:///c:/Users/User/Desktop/AgriMinds/data/processed/rolling_origin_walkforward_predictions_2017_2024.csv) ($288$ rows = $96\text{ months} \times 3\text{ leads}$).
-- **Authoritative Metrics JSON:** [`data/processed/rolling_origin_walkforward_metrics_2017_2024.json`](file:///c:/Users/User/Desktop/AgriMinds/data/processed/rolling_origin_walkforward_metrics_2017_2024.json).
+To isolate whether ocean indices predict genuinely future rainfall rather than tracking overlapping rainfall within $\text{SPI-3}$, we tested the exact same walk-forward framework on **pure future 1-month precipitation anomalies** ($y_{t+h} = P_{t+h} - \bar{P}_{\text{month}}$, mm), which have **zero moving-window overlap** across all horizons (results saved in [`data/processed/walkforward_rainfall_anomaly_predictions_2017_2024.csv`](file:///c:/Users/User/Desktop/AgriMinds/data/processed/walkforward_rainfall_anomaly_predictions_2017_2024.csv)):
 
-### Information Barrier at Forecast Origin $t$
-At each historical forecast origin $t$:
-- **Known Inputs ($X_{\le t}$):**
-  - Local history: $\text{SPI-3}_t$, calendar month harmonics $\sin(2\pi m_t / 12), \cos(2\pi m_t / 12)$.
-  - Ocean indices: Pacific Niño 3.4 at $t$ and $t-6$, Indian Ocean DMI at $t$, Atlantic Meridional Gradient at $t$.
-- **Target ($y_{t+h}$):** $\text{SPI-3}_{t+h}$ for explicit horizons $h \in \{1, 2, 3\}$.
-- **Dynamic Walk-Forward Protocol:** At each monthly origin $t$ from 2017-01 to 2024-12, the model is re-fitted using only historical examples where the outcome occurred on or before $t$ ($\tau + h \le t$), completely eliminating target lookahead leakage.
+| Model | Lead 1 RMSE ($r$) | Lead 2 RMSE ($r$) | Lead 3 RMSE ($r$) | Core Empirical Finding |
+| :--- | :---: | :---: | :---: | :--- |
+| **$M_0$: Climatology ($0.0\text{ mm}$ Anomaly)** | **26.93 mm** (—) | **26.93 mm** (—) | **26.93 mm** (—) | **Unconditional reference baseline** |
+| **$M_1$: Persistence** | 41.81 mm ($-0.231$) | 40.32 mm ($-0.144$) | 38.07 mm ($-0.020$) | Fails catastrophically (negative $r$) |
+| **$M_2$: Local AR** | 28.25 mm ($-0.285$) | 27.07 mm ($-0.268$) | 27.01 mm ($-0.155$) | Worse than Climatology at all leads |
+| **$M_3$: Pacific (Niño 3.4)** | 28.21 mm ($-0.236$) | 27.11 mm ($-0.041$) | 27.09 mm ($-0.031$) | No skill over Climatology |
+| **$M_4$: Indian Ocean (IOD)** | 28.21 mm ($-0.264$) | 27.05 mm ($-0.134$) | 26.99 mm ($-0.063$) | Lowest error among models, but still $\ge M_0$ |
+| **$M_6$: All 3 Oceans Coupled** | 28.05 mm ($-0.198$) | 26.94 mm ($-0.025$) | 27.03 mm ($-0.034$) | Approaches Climatology at Lead 2 ($26.94$ vs $26.93$) |
 
-### Comparative Results: Audited Rolling-Origin Expanding Model (StandardScaler Inside Walk-Forward Loop)
-
-All metrics below are computed directly from [`data/processed/rolling_origin_walkforward_auditable_predictions_2017_2024.csv`](file:///c:/Users/User/Desktop/AgriMinds/data/processed/rolling_origin_walkforward_auditable_predictions_2017_2024.csv) ($288$ rows) and independently verified via [`scripts/audit_and_reproduce_rolling_origin.py`](file:///c:/Users/User/Desktop/AgriMinds/scripts/audit_and_reproduce_rolling_origin.py):
-
-| Lead Horizon & Model | Rolling-Origin RMSE | MAE | Pearson $r$ | $\Delta\text{RMSE}$ vs Climatology | $\Delta\text{RMSE}$ vs Local AR ($M_2$) | Paired 8-Year Bootstrap 95% CI vs $M_2$ | Empirical $p$-value vs $M_2$ |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Lead 1 Month ($h=1$):** | | | | | | | |
-| • $M_0$: Climatology | 0.9475 | 0.7357 | Undefined (Const 0.0) | Reference (0.0) | — | — | — |
-| • $M_1$: Persistence | 0.8945 | 0.6651 | 0.5312 | -0.0530 | +0.1034 | $[+0.0401, +0.1712]$ | $p = 0.0010$ (Inferior) |
-| • $M_2$: Local Climate AR | 0.7911 | 0.5923 | 0.5294 | **-0.1564** | Reference (0.0) | — | $p = 0.0080$ (vs $M_0$) |
-| • $M_3$: Pacific Informed | 0.7911 | 0.5941 | 0.5303 | -0.1564 | +0.0000 | $[-0.0040, +0.0040]$ | $p = 0.9380$ (Null) |
-| • $M_4$: Indian Ocean (IOD) | **0.7807** | **0.5912** | **0.5405** | **-0.1668** | **-0.0104** | $[-0.0262, +0.0034]$ | $p = 0.1880$ (Not Sig) |
-| • $M_5$: Atlantic Informed | 0.7915 | 0.5925 | 0.5293 | -0.1560 | +0.0004 | $[-0.0019, +0.0025]$ | $p = 0.7360$ (Null) |
-| • $M_6$: All 3 Oceans Coupled | 0.7811 | 0.5961 | 0.5408 | -0.1664 | -0.0100 | $[-0.0311, +0.0063]$ | $p = 0.3950$ (Worse than $M_4$) |
-| **Lead 2 Months ($h=2$):** | | | | | | | |
-| • $M_0$: Climatology | 0.9475 | 0.7357 | Undefined (Const 0.0) | Reference (0.0) | — | — | — |
-| • $M_1$: Persistence | 1.1627 | 0.8985 | 0.2066 | +0.2152 | +0.2424 | $[+0.1245, +0.3701]$ | $p = 0.0000$ (Failure) |
-| • $M_2$: Local Climate AR | 0.9203 | 0.7328 | 0.2025 | -0.0272 | Reference (0.0) | — | $p = 0.2850$ (vs $M_0$) |
-| • $M_3$: Pacific Informed | 0.9207 | 0.7294 | 0.2030 | -0.0268 | **+0.0004** | $[-0.0190, +0.0236]$ | $p = 0.9650$ (Adds Error) |
-| • $M_4$: Indian Ocean (IOD) | **0.9010** | **0.7284** | **0.2504** | **-0.0465** | **-0.0193** | $[-0.0355, -0.0023]$ | **$p = 0.0220$ (Nominally Sig)** |
-| • $M_5$: Atlantic Informed | 0.9205 | 0.7322 | 0.2046 | -0.0270 | +0.0002 | $[-0.0048, +0.0050]$ | $p = 0.9460$ (Null) |
-| • $M_6$: All 3 Oceans Coupled | 0.9057 | 0.7224 | 0.2522 | -0.0418 | -0.0146 | $[-0.0390, +0.0169]$ | $p = 0.3470$ (Worse than $M_4$) |
-| **Lead 3 Months ($h=3$):** | | | | | | | |
-| • $M_0$: Climatology | 0.9475 | 0.7357 | Undefined (Const 0.0) | Reference (0.0) | — | — | — |
-| • $M_1$: Persistence | 1.3885 | 1.0738 | -0.1320 | +0.4410 | +0.4411 | $[+0.2190, +0.6654]$ | $p = 0.0000$ (Severe Error) |
-| • $M_2$: Local Climate AR | 0.9474 | 0.7323 | -0.0974 | -0.0001 | Reference (0.0) | — | $p = 0.9850$ (vs $M_0$) |
-| • $M_3$: Pacific Informed | 0.9480 | 0.7354 | -0.0665 | +0.0005 | **+0.0006** | $[-0.0080, +0.0093]$ | $p = 0.8170$ (Adds Error) |
-| • $M_4$: Indian Ocean (IOD) | **0.9362** | **0.7273** | **+0.0578** | **-0.0113** | **-0.0112** | $[-0.0202, -0.0008]$ | **$p = 0.0350$ (Nominally Sig)** |
-| • $M_5$: Atlantic Informed | 0.9469 | 0.7314 | -0.0542 | -0.0006 | -0.0005 | $[-0.0063, +0.0063]$ | $p = 0.8400$ (Null) |
-| • $M_6$: All 3 Oceans Coupled | 0.9361 | 0.7291 | +0.0632 | -0.0114 | -0.0113 | $[-0.0254, +0.0029]$ | $p = 0.1400$ (CI Straddles Zero) |
+*Defensible Scientific Conclusion:*
+The results are consistent with overlapping rainfall windows contributing substantially to short-lead $\text{SPI-3}$ prediction skill. The current experiments do not demonstrate corresponding skill for future monthly rainfall anomalies.
 
 ---
 
 ## 7. Temporal Dependence & Degrees of Freedom Audit
 
-A critical methodological foundation is that a climate record of 528 monthly observations **does not contain 528 independent degrees of freedom**. The 3-month moving aggregation of SPI-3 introduces profound temporal autocorrelation:
-
-### Measured Autocorrelation Structure (1981–2024, $N=526$ Continuous SPI-3 Months)
-
-$$\rho_k = \frac{\sum_{t=1}^{N-k} (y_t - \bar{y})(y_{t+k} - \bar{y})}{(N - k) s_y^2}$$
-
-- **Lag 1 ($\rho_1 = 0.6448$):** Shares 2 of 3 rainfall months ($66.7\%$ calendar overlap).
-- **Lag 2 ($\rho_2 = 0.3358$):** Shares 1 of 3 rainfall months ($33.3\%$ calendar overlap).
-- **Lag 3 ($\rho_3 = 0.0409$):** Shares 0 of 3 rainfall months ($0\%$ calendar overlap; completely orthogonal non-overlapping window).
-- **Lag 4 ($\rho_4 = -0.0620$):** Modest negative rebound.
-- **Lag 6 ($\rho_6 = -0.0406$):** Semiannual decorrelation.
-- **Lag 12 ($\rho_{12} = +0.0605$):** Minimal annual memory once standardized.
-
-### Effective Sample Size ($N_{\text{eff}}$) Formulation
-Under red-noise / autoregressive persistence:
-$$N_{\text{eff}} = N \frac{1 - \rho_1}{1 + \rho_1} = 526 \times \frac{1 - 0.6448}{1 + 0.6448} = 113.6 \text{ independent degrees of freedom}$$
-
-The effective sample size is reduced by **$78.4\%$** relative to nominal sample count ($N_{\text{eff}} / N = 0.216$). Naive statistical tests assuming $N=526$ underestimate standard errors by a factor of $\sqrt{526 / 113.6} = 2.15$, producing severely inflated type-I error rates. All statistical inference in this study is therefore grounded in:
-1. **Paired Calendar Year-Block Bootstrap:** Entire 12-month blocks are resampled jointly to preserve within-year serial autocorrelation.
-2. **Expanding-Origin Out-of-Sample Evaluation:** Out-of-sample errors are evaluated chronologically.
+- **Measured Autocorrelation (1981–2024, $N=526$ Continuous $\text{SPI-3}$ Months):**
+  - $\rho_1 = +0.6448$ (shares 2 of 3 rainfall months; $66.7\%$ calendar overlap).
+  - $\rho_2 = +0.3358$ (shares 1 of 3 rainfall months; $33.3\%$ calendar overlap).
+  - $\rho_3 = +0.0409$ (shares 0 rainfall months; orthogonal window).
+- **Effective Sample Size:**
+  $$N_{\text{eff}} = N \frac{1 - \rho_1}{1 + \rho_1} = 526 \times \frac{1 - 0.6448}{1 + 0.6448} = \mathbf{113.6 \text{ independent degrees of freedom}}$$
+  Nominal sample size ($N=526$) overestimates degrees of freedom by a factor of $4.63\times$. Statistical tests that assume i.i.d. observations severely inflate type-I error.
 
 ---
 
-## 8. Empirical Test of the Three Research Hypotheses & Physical Teleconnection Synthesis
+## 8. Atmospheric Bridge Protocol & Working Hypotheses
 
-The three central scientific questions governing ocean-driven drought forecasting were evaluated:
-1. *Does the ocean signal generalize well and improve forecasts?*
-2. *Does the signal exist but remain too weak or unstable to improve forecasts reliably?*
-3. *Does the apparent historical relationship fail to generalize to unseen years?*
-
-Our empirical results provide clear answers:
-
-### Outcome 1: Indian Ocean Dipole (IOD DMI) Generalizes Out-of-Sample (Hypothesis 1 Supported)
-- In the audited rolling-origin walk-forward evaluation (2017–2024), **Model $M_4$ (Indian Ocean Informed)** consistently achieves lower RMSE than Local AR:
-  - Lead 1: $\Delta\text{RMSE} = -0.0104$ ($p = 0.1880$, not statistically significant).
-  - Lead 2: $\Delta\text{RMSE} = -0.0193$ ($p = 0.0220$, 95% CI: $[-0.0355, -0.0023]$) $\rightarrow$ Nominally significant improvement over Local AR.
-  - Lead 3: $\Delta\text{RMSE} = -0.0112$ ($p = 0.0350$, 95% CI: $[-0.0202, -0.0008]$) $\rightarrow$ Nominally significant improvement over Local AR.
-- Furthermore, at Lead 3, $M_4$ achieves $\text{RMSE} = 0.9362$, beating Climatology ($0.9475$) and restoring positive correlation ($r = +0.0578$ vs Local AR $r = -0.0974$).
-
-### Outcome 2: Linear Pacific ENSO Teleconnection Fails Out-of-Sample (Hypothesis 3 Supported)
-- Across all lead times $h \in \{1, 2, 3\}$, **Model $M_3$ (Pacific Informed / Niño 3.4)** fails to improve over Local AR:
-  - Lead 1: $\Delta\text{RMSE} = +0.0000$ ($p = 0.9380$, zero benefit).
-  - Lead 2: $\Delta\text{RMSE} = +0.0004$ ($p = 0.9650$, adds error).
-  - Lead 3: $\Delta\text{RMSE} = +0.0006$ ($p = 0.8170$, adds error).
-- **Empirical Takeaway:** While historical extreme droughts in northern Ethiopia coincided with strong El Niño events (1984, 2015), the Pacific ENSO teleconnection does not generalize linearly out-of-sample. Fitting a linear parameter to Niño 3.4 adds noise.
-
-### Outcome 3: Multi-Ocean Coupling Suffers from Parameter Inflation
-- **Model $M_6$ (All Three Oceans Coupled)** is consistently **inferior to Model $M_4$ (Indian Ocean alone)** at Lead 2 ($\text{RMSE} = 0.9057$ vs $0.9010$) and Lead 3 ($\text{RMSE} = 0.9361$ vs $0.9362$, with a wider CI that straddles zero $[-0.0254, +0.0029]$).
-- In small-sample climate regimes ($N_{\text{eff}} \approx 113.6$), adding multiple uninformative ocean predictors (Pacific Niño 3.4 lag-0/lag-6, Atlantic Gradient) increases parameter variance and dilutes the predictive signal of the Indian Ocean Dipole.
+The following mechanisms remain **physical working hypotheses**, not established conclusions:
+1. **Indian Ocean Low-Level Moisture Transport Hypothesis:** The proposition that positive IOD anomalies steer anomalous low-level easterly moisture fluxes into the Ethiopian Highlands during post-monsoon months is physically plausible, but has not yet been demonstrated by atmospheric circulation fields.
+2. **Pacific ENSO Remote Teleconnection Hypothesis:** The proposition that Pacific teleconnections fail linearly due to complex Walker circulation modulation and non-linear ITCZ displacements remains a hypothesis.
+3. **Highlands Elevation Masking Protocol:**
+   - Surface pressure across the upper Tekezé Basin drops to $700\text{--}800\text{ hPa}$.
+   - Reanalysis levels at $850\text{ hPa}$ represent subterranean extrapolation across substantial portions of the basin.
+   - Any physical moisture transport diagnostic must integrate strictly from surface pressure upward: $\vec{Q} = \frac{1}{g} \sum_{p_k \le p_s} q_k \vec{v}_k \Delta p_k$.
 
 ---
 
-## 9. Independent Reproducibility Audit & Scientific Integrity Report
+## 9. Canonical Conclusion
 
-To maintain complete methodological transparency, this audit documents the verified empirical facts, the resolved inconsistencies, and the hypotheses that remain unproven pending atmospheric data:
+The fixed-holdout and rolling-origin experiments identify the Indian Ocean Dipole index as a promising candidate predictor for $\text{SPI-3}$ at selected forecast horizons. However, its incremental predictive value is not consistently established across all leads, evaluation designs, and uncertainty analyses. The all-ocean model does not demonstrate a robust advantage over the Indian Ocean-only model. In a complementary benchmark, none of the evaluated linear models outperforms the zero-anomaly climatology for future monthly rainfall anomalies. This contrast suggests that the apparent short-lead $\text{SPI-3}$ skill may partly reflect temporal overlap in the rolling precipitation index rather than an equivalent ability to predict new rainfall.
 
-### Part A: Verified Empirical Results
-1. **100% Matching Metrics from Single Script:** All metrics in Section 6 match the output of [`scripts/run_rolling_origin_walkforward_benchmark.py`](file:///c:/Users/User/Desktop/AgriMinds/scripts/run_rolling_origin_walkforward_benchmark.py) and the independent reproducibility audit [`scripts/audit_and_reproduce_rolling_origin.py`](file:///c:/Users/User/Desktop/AgriMinds/scripts/audit_and_reproduce_rolling_origin.py) to 4 decimal places.
-2. **Causal Information Barrier:** Every row in [`data/processed/rolling_origin_walkforward_auditable_predictions_2017_2024.csv`](file:///c:/Users/User/Desktop/AgriMinds/data/processed/rolling_origin_walkforward_auditable_predictions_2017_2024.csv) explicitly logs:
-   - `forecast_issue_date` ($t$)
-   - `target_date` ($t+h$)
-   - `last_train_target_date` ($\le t$)
-   - `last_train_feature_date` ($\le t - h$)
-   - Predictor values strictly known at issue date $t$.
-3. **Leak-Free Scaling:** `StandardScaler` is fitted strictly on the historical training set at each forecast issue date $t$, and transforms test features using the historical parameters.
-4. **Target Sensitivity: Overlapping SPI-3 vs Pure Future Monthly Rainfall Anomaly:**
-   - A complementary benchmark was executed on **pure future monthly rainfall anomalies** ($y_{t+h} = P_{t+h} - \bar{P}_{\text{month}}$ in mm), which have **zero moving-window overlap** at all horizons $h \in \{1, 2, 3\}$ (results saved in [`data/processed/walkforward_rainfall_anomaly_predictions_2017_2024.csv`](file:///c:/Users/User/Desktop/AgriMinds/data/processed/walkforward_rainfall_anomaly_predictions_2017_2024.csv)):
-     - **Climatology ($0.0\text{ mm}$ Anomaly):** $\text{RMSE} = 26.93\text{ mm}$, $\text{MAE} = 15.51\text{ mm}$, $r = \text{Undefined}$.
-     - **Persistence ($M_1$):** Fails catastrophically ($\text{RMSE} = 41.81\text{ mm}$ at $h=1$, $40.32\text{ mm}$ at $h=2$, $38.07\text{ mm}$ at $h=3$, $r = -0.02\text{ to } -0.23$).
-     - **Local AR ($M_2$):** $\text{RMSE} = 28.25\text{ mm}$ ($h=1$), $27.07\text{ mm}$ ($h=2$), $27.01\text{ mm}$ ($h=3$).
-     - **Indian Ocean ($M_4$):** $\text{RMSE} = 28.21\text{ mm}$ ($h=1$), $27.05\text{ mm}$ ($h=2$), $26.99\text{ mm}$ ($h=3$).
-     - **All-Ocean ($M_6$):** $\text{RMSE} = 28.05\text{ mm}$ ($h=1$), $26.94\text{ mm}$ ($h=2$), $27.03\text{ mm}$ ($h=3$).
-   - **Crucial Finding:** When predicting **pure non-overlapping monthly rainfall anomalies**, no ocean model outperforms Climatology. This proves that the short-lead skill in SPI-3 is heavily driven by the autoregressive persistence of previously observed rainfall months within the 3-month window.
-
-### Part B: Resolved Inconsistencies & Corrected Claims
-1. **Climatology Correlation Discrepancy Resolved:** In earlier prototype logs, an expanding sample mean drifted by tiny increments ($\text{std} \approx 0.003$), generating spurious correlations ($-0.013$ to $-0.130$). In the canonical pipeline, Climatology is fixed at constant $0.0$, its variance is $0.0$, and its Pearson correlation is formally recorded as **undefined (`NaN` / `None`)**.
-2. **Withheld Walk-Forward Window vs Untouched Test Set:** The 2017–2024 period is **not an untouched blind test set**, because earlier experiments explored model choices across those years. It is properly designated as a **withheld retrospective walk-forward evaluation period**.
-3. **Statistical Significance Caveats:** The nominal $p$-values ($p = 0.022$ at Lead 2, $p = 0.035$ at Lead 3 for $M_4$ vs $M_2$) are **uncorrected for multiple hypothesis testing** across 7 models and 3 lead horizons. In an 8-year evaluation window containing only 8 independent annual cycles, these differences represent modest, suggestive evidence rather than definitive statistical proof.
-
-### Part C: Hypotheses Requiring Atmospheric Data (Not Established Facts)
-1. **Indian Ocean Low-Level Moisture Transport Hypothesis:** The claim that IOD anomalies steer anomalous low-level easterly moisture fluxes into the Tekezé Basin during post-monsoon months is physically plausible, but **has not been demonstrated by these statistical forecast metrics**.
-2. **Pacific ENSO Non-Linear / ITCZ Modulation Hypothesis:** The claim that Pacific teleconnections fail due to non-linear ITCZ displacements and Walker cell shifts remains a **physical hypothesis**.
-3. **Required Next Step:** These hypotheses must be tested directly using ERA5 pressure-level wind vectors ($u, v$), specific humidity ($q$), and geopotential height with the Ethiopian Highlands topographic mask ($p \le p_s$) to establish whether physical moisture convergence precedes anomalous rainfall in Tanqua Abergele.
+Seasonal error decomposition further shows that pooled improvements can conceal worse performance during agriculturally important rainy seasons. These results motivate further testing using carefully calibrated $\text{SPI-3}$, leakage-safe rainfall anomalies, and seasonal rainfall targets, followed by independent evaluation of the atmospheric processes linking ocean variability to rainfall in Tanqua Abergele.
