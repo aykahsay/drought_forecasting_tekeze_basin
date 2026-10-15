@@ -150,3 +150,80 @@ def test_inverse_normal_conversion_and_clipping():
     assert 4.5 <= compute_standardized_z_score(1.0) <= 5.0
     assert -5.0 <= compute_standardized_z_score(1e-12) <= -4.5
     assert 4.5 <= compute_standardized_z_score(1.0 - 1e-12) <= 5.0
+
+
+def test_glo_support_boundaries_epsilon():
+    """Verify behavior immediately inside and outside finite support boundaries."""
+    xi = 10.0
+    alpha = 15.0
+
+    # Case 1: k > 0 (upper bounded at x_bound = xi + alpha/k)
+    k_pos = 0.2
+    x_bound_pos = xi + alpha / k_pos  # 10 + 15 / 0.2 = 85.0
+    eps = 1.0  # Numerically distinguishable within IEEE 754 float64 precision (y^5 > 1e-15)
+
+    # Inside support (below upper bound) -> F(x) < 1.0
+    f_inside_pos = cdf_generalized_logistic(x_bound_pos - eps, xi, alpha, k_pos)
+    assert 0.999 <= f_inside_pos < 1.0
+
+    # At or outside support (at or above upper bound) -> F(x) == 1.0
+    assert cdf_generalized_logistic(x_bound_pos, xi, alpha, k_pos) == 1.0
+    assert cdf_generalized_logistic(x_bound_pos + eps, xi, alpha, k_pos) == 1.0
+    assert cdf_generalized_logistic(x_bound_pos + 100.0, xi, alpha, k_pos) == 1.0
+
+    # Case 2: k < 0 (lower bounded at x_bound = xi + alpha/k)
+    k_neg = -0.2
+    x_bound_neg = xi + alpha / k_neg  # 10 + 15 / (-0.2) = -65.0
+
+    # Inside support (above lower bound) -> F(x) > 0.0
+    f_inside_neg = cdf_generalized_logistic(x_bound_neg + eps, xi, alpha, k_neg)
+    assert 0.0 < f_inside_neg <= 0.001
+
+    # At or outside support (at or below lower bound) -> F(x) == 0.0
+    assert cdf_generalized_logistic(x_bound_neg, xi, alpha, k_neg) == 0.0
+    assert cdf_generalized_logistic(x_bound_neg - eps, xi, alpha, k_neg) == 0.0
+    assert cdf_generalized_logistic(x_bound_neg - 100.0, xi, alpha, k_neg) == 0.0
+
+
+def test_glo_shape_approaching_zero():
+    """Verify continuity of GLO CDF as shape parameter k approaches zero from both sides."""
+    xi = 5.0
+    alpha = 20.0
+    x_test_points = [-30.0, -10.0, 0.0, 5.0, 15.0, 25.0, 40.0]
+
+    for x in x_test_points:
+        # Exact logistic limit (k = 0)
+        f_k0 = cdf_generalized_logistic(x, xi, alpha, 0.0)
+        expected_logistic = 1.0 / (1.0 + math.exp(-(x - xi) / alpha))
+        assert f_k0 == pytest.approx(expected_logistic, abs=1e-6)
+
+        # Approach from positive side: k -> 0+
+        f_k_pos_small = cdf_generalized_logistic(x, xi, alpha, +1e-5)
+        assert f_k_pos_small == pytest.approx(f_k0, abs=1e-4)
+
+        # Approach from negative side: k -> 0-
+        f_k_neg_small = cdf_generalized_logistic(x, xi, alpha, -1e-5)
+        assert f_k_neg_small == pytest.approx(f_k0, abs=1e-4)
+
+
+def test_glo_monotonicity_and_symmetric_fitting():
+    """Verify strict monotonicity within support and finite estimates on symmetric samples."""
+    xi, alpha, k = 0.0, 10.0, -0.15
+    lower_bound = xi + alpha / k  # -66.67
+    x_grid = np.linspace(lower_bound + 0.1, 100.0, 100)
+    probs = [cdf_generalized_logistic(x, xi, alpha, k) for x in x_grid]
+
+    # Monotonicity: F(x_{i+1}) >= F(x_i)
+    assert np.all(np.diff(probs) >= 0.0)
+    # Strictly increasing within support
+    assert np.all(np.diff(probs) > 0.0)
+
+    # Nearly symmetric sample (standard normal: mean ~ 0, skew ~ 0)
+    np.random.seed(123)
+    sym_sample = np.random.normal(loc=15.0, scale=8.0, size=500)
+    xi_fit, alpha_fit, k_fit = fit_generalized_logistic_l_moments(sym_sample)
+    assert math.isfinite(xi_fit)
+    assert math.isfinite(alpha_fit) and alpha_fit > 0.0
+    assert math.isfinite(k_fit)
+    # Skewness should be near zero (|k| < 0.15)
+    assert abs(k_fit) < 0.15

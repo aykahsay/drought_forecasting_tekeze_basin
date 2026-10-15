@@ -284,9 +284,9 @@ def cdf_generalized_logistic(x: float, xi: float, alpha: float, k: float) -> flo
         term = y ** (1.0 / k)
         prob = 1.0 / (1.0 + term)
     except (OverflowError, ZeroDivisionError):
-        prob = 1e-6 if k < 0 else (1.0 - 1e-6)
+        prob = 0.0 if k < 0 else 1.0
 
-    return float(np.clip(prob, 1e-6, 1.0 - 1e-6))
+    return float(prob)
 
 
 # Backwards compatibility alias for Log-Logistic

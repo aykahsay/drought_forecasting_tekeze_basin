@@ -48,20 +48,27 @@ To prevent artificial skill inflation and historical data contamination, all mod
    $$\text{Lag}(\text{SST Index}) \ge 1\text{ month}$$
    E.g., an April 1 forecast cannot use March SST anomalies if they are published mid-April.
 4. **Scaler and Normalizer Fit Boundaries:** MinMax scalers, z-score normalizers, and PCA projections must be fit exclusively on the Training Set (1981–2005) and applied frozen to Validation and Test sets.
+5. **Zero Target-Calibration Leakage:** The forecast-evaluation target ($\text{SPEI-3}_{\text{eval}}$) must be standardized using GLO parameters estimated exclusively from data available prior to the evaluation fold (e.g. 1981–2005 for training and validation, and pre-test 1981–2014 for testing). Test-period observations (2015–2024) must **never** enter target distribution parameter fitting.
 
 ---
 
-### 3. Baseline Benchmarks
+### 3. Baseline Benchmarks & Evaluation Protocol
 
 Deep learning and spatial neural networks must be evaluated against standard reference baselines:
 
-1. **Dynamic Climatology Baseline:**
-   * Predicts the historical empirical distribution of the target calendar month over the training period.
+1. **Predefined Event Threshold:**
+   * Declared in advance: $\text{SPEI-3}_{\text{eval}} \le -1.00$ defines moderate-or-worse seasonal drought.
+2. **Dynamic Climatology Baseline:**
+   * Predicts the historical empirical distribution of the target calendar month over the training period (1981–2005).
    * Serves as the zero-skill anchor for Brier Skill Score ($\text{BSS} = 1 - \frac{\text{BS}_{\text{model}}}{\text{BS}_{\text{clim}}}$).
-2. **Persistence Baseline:**
+3. **Persistence Baseline:**
    * $\widehat{\text{SPEI-3}}_{T+L} = \text{SPEI-3}_T$.
-3. **Autoregressive / Statistical Baselines:**
+4. **Autoregressive / Statistical Baselines:**
    * Standard $\text{ARIMA}(p, d, q)$ and Seasonal ETS models.
+5. **Sample Size Constraints & Uncertainty Reporting:**
+   * The frozen test holdout (2015–2024) contains exactly **10 annual September forecasts**.
+   * Ten events do not support precise unconstrained estimation of rare extremes. All evaluation metrics (Brier Score, BSS, CRPS, RMSE) must report bootstrap confidence intervals accounting for temporal dependence.
+   * Spatial deep learning (CNN-LSTM / FNO) must demonstrate a statistically defensible improvement over persistence, climatology, and regularized linear regression rather than merely memorizing training variance.
 
 ---
 
