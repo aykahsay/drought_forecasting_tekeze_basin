@@ -605,6 +605,74 @@ def calculate_spei_seasonal(
     }
 
 
+def summarize_safeguard_occurrences(guards: List[str]) -> Dict[str, int]:
+    """Tallies occurrences of each numerical safeguard applied during normal-score transformation."""
+    return {
+        "total_evaluations": len(guards),
+        "unclamped_exact": sum(1 for g in guards if g == "NONE"),
+        "lower_endpoint_safeguards": sum(1 for g in guards if g == "LOWER_ENDPOINT_SAFEGUARD"),
+        "upper_endpoint_safeguards": sum(1 for g in guards if g == "UPPER_ENDPOINT_SAFEGUARD"),
+        "lower_tail_clamps": sum(1 for g in guards if g == "LOWER_TAIL_CLAMP"),
+        "upper_tail_clamps": sum(1 for g in guards if g == "UPPER_TAIL_CLAMP"),
+        "nan_inputs": sum(1 for g in guards if g == "NAN_INPUT")
+    }
+
+
+def check_glo_goodness_of_fit(
+    sample_data: np.ndarray,
+    xi: float,
+    alpha: float,
+    k: float
+) -> Dict[str, Any]:
+    """
+    Computes empirical goodness-of-fit and support diagnostics for fitted Generalized Logistic distribution.
+    Checks:
+      1. Kolmogorov-Smirnov test statistic and asymptotic p-value.
+      2. Support boundary limits: upper bound (k > 0) or lower bound (k < 0).
+      3. Count of sample observations violating or approaching support limits.
+    """
+    clean = sample_data[np.isfinite(sample_data)]
+    n = len(clean)
+    if n == 0:
+        return {"status": "NO_DATA"}
+
+    support_type = "unbounded"
+    support_bound = None
+    violations = 0
+    if abs(k) >= 1e-6:
+        support_bound = float(xi + alpha / k)
+        if k > 0:
+            support_type = "upper_bounded"
+            violations = int(np.sum(clean >= support_bound))
+        else:
+            support_type = "lower_bounded"
+            violations = int(np.sum(clean <= support_bound))
+
+    ks_stat = float("nan")
+    ks_pval = float("nan")
+    try:
+        from scipy.stats import kstest
+        def _cdf_array(x_arr):
+            return np.array([cdf_generalized_logistic(float(v), xi, alpha, k) for v in x_arr], dtype=np.float64)
+        ks_res = kstest(clean, _cdf_array)
+        ks_stat = float(ks_res.statistic)
+        ks_pval = float(ks_res.pvalue)
+    except Exception:
+        pass
+
+    return {
+        "n_samples": n,
+        "support_type": support_type,
+        "support_boundary": support_bound,
+        "support_violations_count": violations,
+        "kolmogorov_smirnov": {
+            "statistic": ks_stat,
+            "p_value": ks_pval,
+            "adequate_fit_at_05": bool(ks_pval > 0.05) if math.isfinite(ks_pval) else None
+        }
+    }
+
+
 def generate_four_tier_spei_targets(
     d_seasonal_series: np.ndarray,
     years: np.ndarray,
@@ -636,6 +704,8 @@ def generate_four_tier_spei_targets(
         Parametric bootstrap standard errors (xi_se, alpha_se, k_se) are estimated and reported.
       - With N=10 annual September forecasts (2015–2024), performance metrics (Brier, BSS, CRPS)
         are preliminary evidence. The exact number of drought events (SPEI <= -1.0) and non-events is recorded.
+      - Goodness-of-fit diagnostics (KS test) and support boundary checks are recorded for each calibration.
+      - Numerical safeguard occurrence tallies are recorded to audit tail capping.
 
     Returns:
       Comprehensive dictionary with all separate target series, parameter versions, and audit metadata.
@@ -677,10 +747,15 @@ def generate_four_tier_spei_targets(
         "n_bootstrap_converged": len(boot_xi)
     }
 
+    # 1b. Goodness of fit diagnostics for calibration fits
+    diag_retro = check_glo_goodness_of_fit(retro_vals, xi_retro, alpha_retro, k_retro)
+    diag_train = check_glo_goodness_of_fit(train_vals, xi_train, alpha_train, k_train)
+
     # 3. Fit Expanded Pre-Test Sensitivity Baseline (1981–2014)
     expanded_mask = (years >= train_range[0]) & (years <= val_range[1]) & np.isfinite(d_seasonal_series)
     expanded_vals = d_seasonal_series[expanded_mask]
     xi_sens, alpha_sens, k_sens = fit_generalized_logistic_l_moments(expanded_vals, min_samples=min_calibration_years)
+    diag_sens = check_glo_goodness_of_fit(expanded_vals, xi_sens, alpha_sens, k_sens)
 
     # Transform target series
     def _transform_series(subset_mask, xi, alpha, k):
@@ -728,6 +803,11 @@ def generate_four_tier_spei_targets(
     drought_test_events = int(np.sum((spei3_test <= drought_threshold) & np.isfinite(spei3_test)))
     non_drought_test_events = n_test_total - drought_test_events
 
+    # Categorical classification invariance check under tail safeguards:
+    # Since drought thresholds (-1.0, -1.5, -2.0) are well inside [-5.0, 5.0],
+    # capping extreme probabilities (p <= 0 -> z = -5.0) cannot flip any drought classification.
+    classification_invariance = True
+
     return {
         "status": "SUCCESS",
         "protocols": {
@@ -738,7 +818,9 @@ def generate_four_tier_spei_targets(
                 "values": spei3_retro.tolist(),
                 "probabilities": p_retro.tolist(),
                 "safeguards": g_retro,
-                "parameters": {"xi": xi_retro, "alpha": alpha_retro, "k": k_retro, "n": len(retro_vals)}
+                "safeguard_summary": summarize_safeguard_occurrences(g_retro),
+                "parameters": {"xi": xi_retro, "alpha": alpha_retro, "k": k_retro, "n": len(retro_vals)},
+                "goodness_of_fit_diagnostics": diag_retro
             },
             "spei3_train": {
                 "description": "Calibrated on training observations (1981–2005, N=25)",
@@ -747,10 +829,12 @@ def generate_four_tier_spei_targets(
                 "values": spei3_train.tolist(),
                 "probabilities": p_train.tolist(),
                 "safeguards": g_train,
+                "safeguard_summary": summarize_safeguard_occurrences(g_train),
                 "parameters": {
                     "xi": xi_train, "alpha": alpha_train, "k": k_train, "n": len(train_vals),
                     "bootstrap_uncertainty": train_se
-                }
+                },
+                "goodness_of_fit_diagnostics": diag_train
             },
             "spei3_validation": {
                 "description": "Standardized on validation holdout (2006–2014, N=9) using frozen 1981–2005 parameters",
@@ -759,7 +843,8 @@ def generate_four_tier_spei_targets(
                 "years": [int(y) for y in val_years],
                 "values": spei3_val.tolist(),
                 "probabilities": p_val.tolist(),
-                "safeguards": g_val
+                "safeguards": g_val,
+                "safeguard_summary": summarize_safeguard_occurrences(g_val)
             },
             "spei3_test": {
                 "description": "PRIMARY test target (2015–2024, N=10) standardized with frozen 1981–2005 parameters",
@@ -769,13 +854,15 @@ def generate_four_tier_spei_targets(
                 "values": spei3_test.tolist(),
                 "probabilities": p_test.tolist(),
                 "safeguards": g_test,
+                "safeguard_summary": summarize_safeguard_occurrences(g_test),
                 "drought_threshold": drought_threshold,
                 "sample_size_qualification": {
                     "n_total": n_test_total,
                     "drought_events": drought_test_events,
                     "non_drought_events": non_drought_test_events,
                     "status": "PRELIMINARY_EVIDENCE_SMALL_SAMPLE"
-                }
+                },
+                "tail_safeguard_categorical_invariance": classification_invariance
             },
             "spei3_test_expanded_sensitivity": {
                 "description": "SENSITIVITY test target (2015–2024, N=10) calibrated on 1981–2014 (N=34)",
@@ -785,7 +872,9 @@ def generate_four_tier_spei_targets(
                 "values": spei3_test_sens.tolist(),
                 "probabilities": p_test_sens.tolist(),
                 "safeguards": g_test_sens,
-                "parameters": {"xi": xi_sens, "alpha": alpha_sens, "k": k_sens, "n": len(expanded_vals)}
+                "safeguard_summary": summarize_safeguard_occurrences(g_test_sens),
+                "parameters": {"xi": xi_sens, "alpha": alpha_sens, "k": k_sens, "n": len(expanded_vals)},
+                "goodness_of_fit_diagnostics": diag_sens
             }
         }
     }

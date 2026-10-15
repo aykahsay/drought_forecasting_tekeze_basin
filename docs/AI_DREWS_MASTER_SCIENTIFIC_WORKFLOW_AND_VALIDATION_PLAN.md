@@ -251,6 +251,10 @@ To guarantee that target construction strictly avoids information leakage and pr
 
 * **Parameter Uncertainty & Sample Size Reality ($N=25$):**
   Estimating a three-parameter Generalized Logistic distribution $(\xi, \alpha, k)$ from $N=25$ observations incurs shape parameter sampling variance. The pipeline computes parametric bootstrap standard errors for $(\xi, \alpha, k)$ and outputs them in target metadata.
+* **Frozen Training-Calibration Parameter Rule:**
+  The predictive forecasting models must strictly use the frozen training-calibration parameters (`spei3_train`, 1981–2005) to transform all validation (`spei3_validation`) and test (`spei3_test`) targets. The expanded calibration (`spei3_test_expanded_sensitivity`) is strictly an auxiliary sensitivity analysis, not a replacement test target chosen post-hoc after inspecting predictive skill.
+* **Distribution Goodness-of-Fit Diagnostics:**
+  For every calibration fold, the pipeline executes and records Kolmogorov-Smirnov (KS) test statistics and p-values alongside support boundary audits (boundary limits $\xi + \alpha/k$ and violation counts) to verify that the fitted GLO distribution adequately represents the month-specific water-balance samples.
 
 ### 5.3 Hargreaves–Samani PET & Radiative Formulation (FAO-56 Standard)
 
@@ -270,6 +274,8 @@ To guarantee that target construction strictly avoids information leakage and pr
   1. Leap-year day counts ($N_m = 29$ days in February 1984, 1988, ..., 2024 vs $28$ days in non-leap years).
   2. Daily solar declination and astronomical radiation dynamics across the catchment.
   3. Strict input validity rejection: $T_{\max} < T_{\min}$ or non-finite inputs immediately return `NaN`.
+* **Scientific Distinction: Reference Evapotranspiration ($\text{ET}_0$) vs Actual Evapotranspiration ($\text{ET}_a$):**
+  Hargreaves–Samani estimates reference evapotranspiration ($\text{ET}_0$) of a hypothetical well-watered grass surface from ambient air temperature and extraterrestrial radiation. It does not measure actual catchment evapotranspiration ($\text{ET}_a$), which is heavily constrained by soil moisture depletion during semi-arid dry spells. The resulting climatic water balance $D = P - \text{ET}_0$ measures atmospheric evaporative demand vs precipitation supply. Before final drought severity interpretation, the pipeline evaluates SPEI sensitivity across alternative PET methods (Hargreaves vs Thornthwaite vs ERA5-Land Penman-Monteith).
 * **Interpretation of Jensen's Inequality:**
   Because $f(u) = \sqrt{u}$ is strictly concave, $\mathbb{E}[\sqrt{\Delta T}] \le \sqrt{\mathbb{E}[\Delta T]}$. Summing daily PET avoids the positive bias introduced by evaluating monthly average diurnal range $\sqrt{\bar{T}_{\max} - \bar{T}_{\min}}$.
 
@@ -281,7 +287,10 @@ Under Hosking (1990) Generalized Logistic distribution:
   * $p \le 0.0 \implies z = -5.0$, logged with `LOWER_ENDPOINT_SAFEGUARD`.
   * $p \ge 1.0 \implies z = +5.0$, logged with `UPPER_ENDPOINT_SAFEGUARD`.
   * Finite bounds $[-5.0, 5.0]$ prevent `ndtri(0)` or `ndtri(1)` from silently producing infinite ($\pm\infty$) drought indices.
-* **Audit Trail:** The raw non-exceedance probabilities and transformation safeguard flags are preserved alongside standardized z-scores in the output metadata.
+* **Endpoint Event Tallying & Diagnostic Output:**
+  The pipeline reports the exact occurrence count of lower-endpoint safeguards, upper-endpoint safeguards, and tail clamps across all splits (`safeguard_summary`). The raw non-exceedance probabilities $p_{\text{raw}}$ and safeguard audit flags are preserved alongside standardized z-scores.
+* **Categorical Invariance of the Operational Cap:**
+  Because all operational drought thresholds ($\text{SPEI-3} \le -1.0, -1.5, -2.0$) lie well within $[-5.0, +5.0]$, mapping extreme lower-tail probabilities to $-5.0$ (rather than evaluating an unbounded asymptotic normal tail score $z \approx -8.0$) has zero impact on categorical drought classification (mild, moderate, or severe). Drought classification is mathematically invariant to the safeguard.
 * **Current Status:** `NOT RUN` (Paused pending Gate 1 completion).
 
 ---

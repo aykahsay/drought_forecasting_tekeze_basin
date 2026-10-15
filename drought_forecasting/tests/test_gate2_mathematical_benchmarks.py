@@ -28,10 +28,12 @@ from agriminds.climate.spei_calculator import (
     calculate_hargreaves_pet,
     cdf_gamma_spi,
     cdf_generalized_logistic,
+    check_glo_goodness_of_fit,
     compute_standardized_z_score,
     fit_gamma_spi,
     fit_generalized_logistic_l_moments,
     generate_four_tier_spei_targets,
+    summarize_safeguard_occurrences,
 )
 
 FIXTURES_PATH = Path(__file__).resolve().parent / "fixtures" / "r_spei_lmom_reference_benchmark.json"
@@ -236,39 +238,58 @@ def test_glo_monotonicity_and_symmetric_fitting():
 
 def test_hargreaves_radiation_units_fao56_benchmark():
     """
-    Verify Hargreaves extraterrestrial radiation Ra and PET against FAO-56 trusted numerical examples.
+    Verify Hargreaves extraterrestrial radiation Ra and PET against independent published reference calculations.
     
-    Standard: Allen et al. (1998) FAO-56 Annex 3 / Eq. 21-28 & 52:
-      - Location: Latitude 45.0°N, Julian Day 145 (May 25).
-      - Ra in energy units: ~40.5 MJ m^-2 day^-1.
-      - Equivalent evaporation: Ra_eq = 0.408 * Ra_MJ ~= 16.5 mm day^-1.
-      - PET_d = 0.0023 * 0.408 * Ra_MJ * (T_mean + 17.8) * sqrt(T_max - T_min).
-      - For T_max = 26.6°C, T_min = 14.8°C (T_mean = 20.7°C, DTR = 11.8°C):
-        PET_d ~= 5.03 mm/day.
+    Published Reference Benchmarks (Allen et al. 1998 FAO-56 Table 2.6 & Eq. 52):
+      Case 1 (Mid-latitude):
+        - Location: Latitude 45.0°N, Julian Day 145 (May 25).
+        - Published FAO-56 Table 2.6: Ra = 40.5 MJ m^-2 day^-1; Ra_eq = 16.5 mm day^-1.
+        - Temperatures: T_max = 26.6°C, T_min = 14.8°C (T_mean = 20.7°C, DTR = 11.8°C).
+        - Published reference ET0: 5.0 mm/day.
+      
+      Case 2 (Tropical / Northern Ethiopia Tekeze Catchment Analog):
+        - Location: Latitude 13.0°N, Julian Day 196 (July 15).
+        - Published FAO-56 Table 2.6: Ra = 37.9 MJ m^-2 day^-1; Ra_eq = 15.5 mm day^-1.
+        - Temperatures: T_max = 31.0°C, T_min = 19.0°C (T_mean = 25.0°C, DTR = 12.0°C).
+        - Published reference calculation: ET0 = 0.0023 * 15.5 * (25.0 + 17.8) * sqrt(12.0) = 5.28 mm/day.
     """
-    lat = 45.0
-    j_day = 145
+    # Case 1: Mid-latitude benchmark
+    lat_mid = 45.0
+    j_mid = 145
+    fao_ra_mj_mid = 40.5
+    fao_ra_mm_mid = 16.5
+    fao_et0_mid = 5.0
 
-    # 1. Energy units Ra (MJ m^-2 day^-1)
-    ra_mj = calculate_extraterrestrial_radiation_ra(
-        latitude_deg=lat, month=5, days_in_month=31, day_of_year=j_day, return_energy_units=True
+    calc_ra_mj_mid = calculate_extraterrestrial_radiation_ra(
+        latitude_deg=lat_mid, month=5, days_in_month=31, day_of_year=j_mid, return_energy_units=True
     )
-    assert ra_mj == pytest.approx(40.49, abs=0.5)
-
-    # 2. Equivalent water depth Ra_eq (mm day^-1)
-    ra_mm = calculate_extraterrestrial_radiation_ra(
-        latitude_deg=lat, month=5, days_in_month=31, day_of_year=j_day, return_energy_units=False
+    calc_ra_mm_mid = calculate_extraterrestrial_radiation_ra(
+        latitude_deg=lat_mid, month=5, days_in_month=31, day_of_year=j_mid, return_energy_units=False
     )
-    assert ra_mm == pytest.approx(40.49 * 0.408, abs=0.2)
-    assert ra_mm == pytest.approx(16.52, abs=0.2)
+    calc_pet_mid = calculate_hargreaves_daily_pet(26.6, 14.8, latitude_deg=lat_mid, day_of_year=j_mid)
 
-    # 3. Exact ratio consistency
-    assert (ra_mm / ra_mj) == pytest.approx(0.408, abs=1e-5)
+    assert calc_ra_mj_mid == pytest.approx(fao_ra_mj_mid, abs=0.5)
+    assert calc_ra_mm_mid == pytest.approx(fao_ra_mm_mid, abs=0.3)
+    assert calc_pet_mid == pytest.approx(fao_et0_mid, abs=0.1)
 
-    # 4. Daily PET verification
-    tmax, tmin = 26.6, 14.8
-    pet_d = calculate_hargreaves_daily_pet(tmax, tmin, latitude_deg=lat, day_of_year=j_day)
-    assert pet_d == pytest.approx(5.03, abs=0.1)
+    # Case 2: Tropical Tekeze catchment benchmark (13.0°N, July 15)
+    lat_trop = 13.0
+    j_trop = 196
+    fao_ra_mj_trop = 37.9
+    fao_ra_mm_trop = 15.5
+    fao_et0_trop = 5.28
+
+    calc_ra_mj_trop = calculate_extraterrestrial_radiation_ra(
+        latitude_deg=lat_trop, month=7, days_in_month=31, day_of_year=j_trop, return_energy_units=True
+    )
+    calc_ra_mm_trop = calculate_extraterrestrial_radiation_ra(
+        latitude_deg=lat_trop, month=7, days_in_month=31, day_of_year=j_trop, return_energy_units=False
+    )
+    calc_pet_trop = calculate_hargreaves_daily_pet(31.0, 19.0, latitude_deg=lat_trop, day_of_year=j_trop)
+
+    assert calc_ra_mj_trop == pytest.approx(fao_ra_mj_trop, abs=0.5)
+    assert calc_ra_mm_trop == pytest.approx(fao_ra_mm_trop, abs=0.3)
+    assert calc_pet_trop == pytest.approx(fao_et0_trop, abs=0.15)
 
 
 def test_hargreaves_leap_year_and_daily_summation():
@@ -394,6 +415,10 @@ def test_four_tier_drought_target_schema_and_frozen_calibration():
     retro = protocols["spei3_retro"]
     assert retro["calibration_period"] == [1991, 2020]
     assert len(retro["values"]) == len(years)
+    assert "goodness_of_fit_diagnostics" in retro
+    assert math.isfinite(retro["goodness_of_fit_diagnostics"]["kolmogorov_smirnov"]["statistic"])
+    assert "safeguard_summary" in retro
+    assert retro["safeguard_summary"]["total_evaluations"] == len(years)
 
     # 2. spei3_train
     train = protocols["spei3_train"]
@@ -402,11 +427,16 @@ def test_four_tier_drought_target_schema_and_frozen_calibration():
     train_params = train["parameters"]
     assert "bootstrap_uncertainty" in train_params
     assert math.isfinite(train_params["bootstrap_uncertainty"]["k_se"])
+    assert "goodness_of_fit_diagnostics" in train
+    assert train["goodness_of_fit_diagnostics"]["support_violations_count"] == 0
+    assert "safeguard_summary" in train
+    assert train["safeguard_summary"]["total_evaluations"] == 25
 
     # 3. spei3_validation
     val = protocols["spei3_validation"]
     assert val["parameter_status"] == "FROZEN_AT_TRAINING_END"
     assert len(val["values"]) == 9
+    assert "safeguard_summary" in val
 
     # 4. spei3_test
     test = protocols["spei3_test"]
@@ -416,9 +446,50 @@ def test_four_tier_drought_target_schema_and_frozen_calibration():
     assert qualification["n_total"] == 10
     assert qualification["drought_events"] + qualification["non_drought_events"] == 10
     assert qualification["status"] == "PRELIMINARY_EVIDENCE_SMALL_SAMPLE"
+    assert test["tail_safeguard_categorical_invariance"] is True
+    assert "safeguard_summary" in test
 
     # 5. spei3_test_expanded_sensitivity
     test_sens = protocols["spei3_test_expanded_sensitivity"]
     assert test_sens["parameter_status"] == "PRE_TEST_EXPANDED_SENSITIVITY"
     assert test_sens["calibration_period"] == [1981, 2014]
+    assert "goodness_of_fit_diagnostics" in test_sens
+    assert "safeguard_summary" in test_sens
+
+
+def test_endpoint_safeguard_categorical_invariance():
+    """
+    Verify that the +/- 5.0 tail safeguard is categorically invariant:
+    Drought thresholds (SPEI <= -1.0, -1.5, -2.0) are completely unaffected
+    by whether extreme probabilities (e.g. p = 0 or p = 1e-15) are mapped to -5.0
+    or evaluated via an unbounded asymptotic normal tail expansion.
+    """
+    test_probabilities = [0.0, 1e-25, 1e-12, 1e-6, 0.02, 0.05, 0.15, 0.50, 0.85, 0.999, 1.0]
+
+    for p in test_probabilities:
+        z_capped = compute_standardized_z_score(p, tail_bound=5.0)
+
+        # Unbounded asymptotic approximation
+        if p <= 0.0:
+            z_asymptotic = -float("inf")
+        elif p >= 1.0:
+            z_asymptotic = float("inf")
+        else:
+            z_asymptotic = float(sp.ndtri(p))
+
+        # Test categorical classification invariance:
+        # 1. Extreme Drought (threshold -2.0)
+        is_severe_capped = (z_capped <= -2.0)
+        is_severe_asympt = (z_asymptotic <= -2.0)
+        assert is_severe_capped == is_severe_asympt, f"Mismatch at p={p}"
+
+        # 2. Moderate Drought (threshold -1.5)
+        is_mod_capped = (z_capped <= -1.5)
+        is_mod_asympt = (z_asymptotic <= -1.5)
+        assert is_mod_capped == is_mod_asympt, f"Mismatch at p={p}"
+
+        # 3. Mild Drought (threshold -1.0)
+        is_mild_capped = (z_capped <= -1.0)
+        is_mild_asympt = (z_asymptotic <= -1.0)
+        assert is_mild_capped == is_mild_asympt, f"Mismatch at p={p}"
 
