@@ -30,14 +30,28 @@ In accordance with the scientific review of the AI-DREWS scientific workflow, th
 
 The table below lists every raw climate file currently residing on the local filesystem in `data/raw/`, detailing product, variable, temporal coverage, spatial grid coordinates, physical units, missing data counts, file size, and cryptographic SHA-256 hashes.
 
-| Product / Dataset | File Name / Path | Variable | Time Coverage | Spatial Grid Coordinates | Units | Total Cells | Missing Cells (%) | File Size | SHA-256 Checksum |
+| Product / Dataset | File Name / Path | Variable | Time Coverage & Reconciled Span | Spatial Grid Coordinates | Units | Total Cells | Missing Cells (%) | File Size | SHA-256 Checksum |
 | :--- | :--- | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :--- |
 | **NOAA CPC Global Unified** | `data/raw/temperature/cpc/tmax.1984.nc` | `tmax` (Daily Max Temp) | 1984-01-01 to 1984-12-31 (366 days, leap year) | Global $0.5^\circ \times 0.5^\circ$<br>Lat: $[-89.75, 89.75]$ ($N=360$)<br>Lon: $[0.25, 359.75]$ ($N=720$) | $^\circ\text{C}$ | $94,867,200$ | $69,716,712$<br>($73.49\%$ global ocean mask) | $87,688,044\text{ B}$<br>($83.62\text{ MB}$) | `476fae44066168fab45e76fc98aae9bba22c4f00ea1f18cb6304727dadb7305b` |
 | **NOAA CPC Global Unified** | `data/raw/temperature/cpc/tmin.1984.nc` | `tmin` (Daily Min Temp) | 1984-01-01 to 1984-12-31 (366 days, leap year) | Global $0.5^\circ \times 0.5^\circ$<br>Lat: $[-89.75, 89.75]$ ($N=360$)<br>Lon: $[0.25, 359.75]$ ($N=720$) | $^\circ\text{C}$ | $94,867,200$ | $69,716,558$<br>($73.49\%$ global ocean mask) | $89,076,688\text{ B}$<br>($84.95\text{ MB}$) | `b14e8bba53532cddcaad6120bbe031f38e0bf4755cf92efb248a92f8ac2fedea` |
-| **CHIRPS 2.0 Ethiopia NetCDF** | `data/raw/chirps_ethiopia_2000_2024.nc` | `precip` (Monthly Rainfall) | 2000–2024 (84 months subset) | Ethiopia $0.05^\circ \times 0.05^\circ$<br>Lat: $[3.0, 15.5]$ ($N=250$)<br>Lon: $[33.0, 48.0]$ ($N=300$) | $\text{mm/month}$ | $6,300,000$ | $514,500$<br>($8.17\%$ regional mask) | $18,075,588\text{ B}$<br>($17.24\text{ MB}$) | `39a0dc652ff6bf55592b96ac59b6ebe52f0ee33008ba41ed08a39c26afa8f822` |
-| **CHIRPS 2.0 Africa GeoTIFF Archive** | `data/raw/chirps_monthly/*.tif.gz` (168 files) | `precip` (Monthly Rainfall) | 14 selected years (1984, 1987, 1991, 1994, 1997, 2000, 2002, 2009, 2011, 2015, 2018, 2020, 2023, 2024) | Africa $0.05^\circ \times 0.05^\circ$<br>Lat: $[-40.0, 40.0]$<br>Lon: $[-20.0, 55.0]$ | $\text{mm/month}$ | $3.84 \times 10^8$ (total) | NoData: $-9999$ excluded | $758,440,003\text{ B}$<br>($723.31\text{ MB}$) | Manifest logged in `temperature_provenance_manifest.json` |
+| **CHIRPS 2.0 Ethiopia NetCDF** | `data/raw/chirps_ethiopia_2000_2024.nc` | `precip` (Monthly Rainfall) | **Reconciled Reality:** 2018–2024 only (84 months).<br>*Defect:* Filename claims 2000–2024 (300 months), but missing 1981–2017 (216 mos of target span); lacks CF `time` coordinate. | Ethiopia $0.05^\circ \times 0.05^\circ$<br>Lat: $[3.0, 15.5]$ ($N=250$)<br>Lon: $[33.0, 48.0]$ ($N=300$) | $\text{mm/month}$ | $6,300,000$ | $514,500$<br>($8.17\%$ regional mask) | $18,075,588\text{ B}$<br>($17.24\text{ MB}$) | `39a0dc652ff6bf55592b96ac59b6ebe52f0ee33008ba41ed08a39c26afa8f822` |
+| **CHIRPS 2.0 Africa GeoTIFF Archive** | `data/raw/chirps_monthly/*.tif.gz` (168 files) | `precip` (Monthly Rainfall) | **Reconciled Reality:** 14 sampled years ($14 \times 12 = 168$ mos): 1984, 1987, 1991, 1994, 1997, 2000, 2002, 2009, 2011, 2015, 2018, 2020, 2023, 2024.<br>*Defect:* Missing 30 years ($360$ months) of continuous 1981–2024 archive. | Africa $0.05^\circ \times 0.05^\circ$<br>Lat: $[-40.0, 40.0]$<br>Lon: $[-20.0, 55.0]$ | $\text{mm/month}$ | $3.84 \times 10^8$ (total) | NoData: $-9999$ excluded | $758,440,003\text{ B}$<br>($723.31\text{ MB}$) | Manifest logged in `temperature_provenance_manifest.json` |
 
 ---
+
+### 2.1 Reconciled Resolution of the CHIRPS Inventory Discrepancy
+
+A forensic examination of the CHIRPS holdings resolves the apparent contradiction between filenames and observation counts:
+1. **The 84-Month NetCDF (`chirps_ethiopia_2000_2024.nc`):**
+   * Inspection of NetCDF dimensions reveals: `time: 84`, `latitude: 250`, `longitude: 300`.
+   * Exactly $84\text{ months} = 7\text{ years} \times 12\text{ months/year}$.
+   * The file contains only the period **January 2018 through December 2024**. The filename `2000_2024` is a legacy misnomer inherited from an incomplete initial download script. Furthermore, the file omits a standard CF-1.6 `time` coordinate variable.
+   * **Verdict:** This file is classified as an incomplete exploratory artifact; it **cannot** support a 1981–2024 reconstruction.
+2. **The 168 Monthly GeoTIFFs (`data/raw/chirps_monthly/*.tif.gz`):**
+   * File-by-file audit confirms exactly 168 files corresponding to 14 complete 12-month years: `1984, 1987, 1991, 1994, 1997, 2000, 2002, 2009, 2011, 2015, 2018, 2020, 2023, 2024`.
+   * These 14 years were sampled around historical drought shocks and 3-year calibration intervals, leaving **30 unacquired years (360 months)**.
+   * **Verdict:** Before Gate 1 can achieve certification, the missing 360 monthly GeoTIFFs must be downloaded from the CHC repository (`https://data.chc.ucsb.edu/products/CHIRPS-2.0/africa_monthly/tifs/`) to construct the continuous 528-month sequence.
+
 
 ## 3. Subgrid Inspection: Tekezé Basin Catchment (1984 Benchmark)
 
@@ -89,6 +103,20 @@ Subgrid Spatial Coordinates:
 * **Construction Methodology:** Objective interpolation of Global Telecommunication System (GTS) daily station observations using an enhanced Shepard distance-weighting algorithm, coupled with CRU elevation lapse-rate adjustment.
 * **Scientific Classification:** **Independent Gridded Comparison Product** (NOT direct in-situ ground truth).
 * **Scientific Reality Check:** In Northern Ethiopia and the Horn of Africa during the early 1980s, the GTS weather station network was sparse. Therefore, CPC represents an interpolated statistical product subject to smoothing and station reporting availability. It serves as an independent check on reanalysis lapse rates, not an infallible reference.
+
+### 4.3 Timezone & Daily Extrema Grouping Boundaries
+
+Calculating daily temperature extrema ($T_{\max, d}$, $T_{\min, d}$) from hourly reanalyses requires an explicit, documented diurnal window:
+1. **ERA5-Land Diurnal Grouping (Primary Convention):**
+   * ERA5-Land records hourly temperatures in Coordinated Universal Time (UTC).
+   * Local civil time in Ethiopia is East Africa Time ($\text{EAT} = \text{UTC} + 3\text{h}$).
+   * **Primary Standard (UTC Day):** Grouping hourly steps from $00:00\text{ UTC}$ to $23:00\text{ UTC}$ for each calendar date $d$.
+     * In Tekezé ($36.3^\circ\text{E}–40.0^\circ\text{E}$), $00:00\text{ UTC}$ corresponds to $03:00\text{ EAT}$ (3 hours before sunrise), and $23:00\text{ UTC}$ corresponds to $02:00\text{ EAT}$ the following night.
+     * In tropical highlands ($13^\circ\text{N}$), diurnal minimum universally occurs near astronomical sunrise ($\sim 06:00\text{ EAT} = 03:00\text{ UTC}$), and diurnal maximum occurs in early afternoon ($\sim 14:00\text{ EAT} = 11:00\text{ UTC}$). Both physical extrema fall cleanly within the $00:00–23:00\text{ UTC}$ window, avoiding split solar heating cycles.
+   * **Sensitivity Standard (Local Civil Day):** Grouping from $21:00\text{ UTC}(d-1)$ to $20:00\text{ UTC}(d)$ corresponding to local midnight-to-midnight ($00:00–23:00\text{ EAT}$). The aggregation script supports this alternative for sensitivity analysis.
+2. **NOAA CPC Observation Window:**
+   * NOAA CPC Global Daily Temperature compiles GTS station reports over a 24-hour observation cycle (typically $12:00\text{ UTC} - 12:00\text{ UTC}$ or the local national 24-hour meteorological reporting cycle ending at 06:00 or 12:00 UTC).
+   * **Cross-Product Nuance:** CPC and ERA5-Land daily extrema represent slightly shifted 24-hour observation windows. While daily diurnal ranges ($\Delta T = T_{\max} - T_{\min}$) and monthly aggregated means converge, daily time series cannot be assumed to be synchronized to the exact second.
 
 ---
 

@@ -41,18 +41,23 @@ For each calendar month $t \in \{1, \dots, 528\}$:
 3. Rolling 3-month precipitation:
    $$P_{3,t} = \sum_{k=0}^2 P_{t-k}$$
 
-#### 2.2 Month-Specific Calibration over Fixed Normal (1991–2020)
-Because climate regimes in Northern Ethiopia are strongly bimodal (Belg short rains: March–May; Kiremt main rains: June–September; Bega dry season: October–February), distributions are fitted separately for each of the 12 ending calendar months:
-* **Declared Methodological Baseline:** We adopt the 30-year standard climatological normal period (1991–2020) as our explicit methodological baseline. Inadequate calibration sample sizes ($N < 20$) will be reported rather than silently shifting periods.
-* For each ending calendar month $m \in \{1, \dots, 12\}$:
-  * Extract calibration observations $\{D_{3, y, m} \mid y \in [1991, 2020]\}$.
-  * Require at least $N_{\text{valid}} \ge 20$ years; otherwise raise `InadequateBaselineSampleError`.
-  * Fit Hosking Generalized Logistic parameters $(\xi_m, \alpha_m, k_m)$.
-  * Standardize all months $t$ ending in month $m$:
-    $$\text{SPEI-3}_t = \Phi^{-1}\left( F(D_{3,t}; \xi_m, \alpha_m, k_m) \right)$$
+* **Boundary Condition Requirement:** Calculating the rolling 3-month water balance for January 1991 ($t = \text{1991-01}$) requires climate observations from **November 1990 and December 1990**, even though Nov/Dec 1990 fall outside the 1991–2020 calibration period. Likewise, the final target month (December 2024) requires October and November 2024. The pipeline maintains the complete continuous 528-month climate series for accumulation.
 
-#### 2.3 Gamma-Fitted SPI-3
-* Accumulated precipitation $P_{3,t}$ is standardized using Thom (1958) Gamma MLE and zero-adjustment $H(x) = q + (1 - q)G(x)$.
+#### 2.2 Dual-Target Calibration Architecture: Retrospective vs. Forecast-Evaluation Target
+
+To guarantee that target construction does not leak future information into the 2015–2024 test evaluation set:
+1. **Retrospective Climate Index ($\text{SPEI-3}_{\text{retro}}$):**
+   * Calibrated over the declared 30-year WMO normal period (1991–2020; $N=30$ observations per calendar month).
+   * For each calendar month $m \in \{1, \dots, 12\}$, fit Hosking GLO parameters $(\xi_m, \alpha_m, k_m)$ on $\{D_{3, y, m} \mid y \in [1991, 2020]\}$.
+   * Used exclusively for retrospective climatological analysis, long-term historical drought audits, and dashboard historical visualization.
+2. **Forecast-Evaluation Target ($\text{SPEI-3}_{\text{eval}}$):**
+   * Calibrated strictly adhering to each evaluation fold's temporal information cutoff.
+   * For models evaluated on the frozen 2015–2024 holdout, distribution parameters are fitted **exclusively using data ending before the evaluation period** (e.g. fixed 1981–2010 baseline, or rolling expanding windows strictly prior to issue date).
+   * Observations from 2015–2024 **never** enter target standardization.
+   * $\text{SPEI-3}_{\text{retro}}$ and $\text{SPEI-3}_{\text{eval}}$ are documented as distinct indices and are not assumed to be numerically interchangeable.
+
+#### 2.3 Gamma-Fitted SPI-3 (Thom Shape Approximation)
+* Accumulated precipitation $P_{3,t}$ is standardized using **Thom's (1958) approximation for Gamma shape estimation** with corresponding scale estimate $\hat{\beta} = \bar{x}/\hat{\alpha}$, and zero-adjustment $H(x) = q + (1 - q)G(x)$.
 * **Prohibition:** Labeling a simple Gaussian $z$-score ($z = \frac{x - \mu}{\sigma}$) as SPI is strictly prohibited because precipitation distributions in semi-arid basins are heavily skewed.
 
 ---
