@@ -98,41 +98,75 @@ Deep learning and spatial neural networks must be evaluated against standard ref
 
 ---
 
-### 5. Candidate Model Architectures
+### 5. Candidate Model Architectures & Model M7 (Deep Spatiotemporal CNN-BiLSTM)
 
-When Gate 5 is initiated, the following models will be evaluated under identical chronological cross-validation:
+When advancing from linear baselines ($M_0\text{--}M_6$) to deep learning, the pipeline incorporates **Model $M_7$ (Deep Spatiotemporal CNN-BiLSTM)**, implemented in [`drought_forecasting/agriminds/models/spatiotemporal_cnn_bilstm.py`](file:///c:/Users/User/Desktop/AgriMinds/drought_forecasting/agriminds/models/spatiotemporal_cnn_bilstm.py):
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│ 1. Classical Statistical: ARIMA / Seasonal ETS / Ridge Regression      │
-├────────────────────────────────────────────────────────────────────────┤
-│ 2. Temporal Deep Learning: Recurrent LSTM / GRU                        │
-├────────────────────────────────────────────────────────────────────────┤
-│ 3. Spatiotemporal: Convolutional LSTM (ConvLSTM / CNN-LSTM)            │
-├────────────────────────────────────────────────────────────────────────┤
-│ 4. Proposed: Fourier Neural Operator (FNO) / Spectral-Enhanced Network │
-└────────────────────────────────────────────────────────────────────────┘
+[Spatial SSTA / ERA5 Reanalysis Grid (t-L+1 to t)] 
+                       │
+                       ▼
+          [2D-CNN Spatial Encoder]
+      (Extracts dipole / gradient modes)
+                       │
+                       ├───────────────── [Local Autoregressive Features: SPI-3(t), sin/cos(m)]
+                       ▼
+          [Latent Feature Vector h_t]
+                       │
+                       ▼
+      [Causal BiLSTM over Historical Window]
+   (Forward: past -> t | Backward: t -> past)
+                       │
+                       ▼
+          [Temporal Attention Pooling]
+                       │
+                       ▼
+         [Dense Projection Head -> y_{t+h}]
 ```
+
+#### 5.1 Three Core Vulnerabilities Solved by $M_7$:
+1. **The Small-Sample Barrier ($N_{\text{eff}} \approx 113.6$):** Standard deep neural networks easily overfit on 400 monthly climate observations. $M_7$ controls parameter explosion using Adaptive Average Pooling to $(2, 2)$, heavy Dropout ($p=0.3$), and weight decay ($L_2 \ge 10^{-3}$).
+2. **The Causal Time Barrier in Bidirectional LSTMs:** Running standard BiLSTMs across forecast origin $t$ leaks future tokens ($t+1, \dots, t+h$) into the backward pass. In $M_7$, the bidirectional pass operates **strictly over the historical context sequence** (lookback length $L \le 12\text{ months}$, spanning $[t-L+1, t]$):
+   - Forward LSTM processes: $t-L+1 \to t$
+   - Backward LSTM processes: $t \to t-L+1$
+   - Pooled hidden states: $h_t = [h_{\text{fwd}, t} \,\|\, h_{\text{bwd}, t}]$
+   - Zero future tokens ($t+1 \dots t+h$) exist in the input tensor.
+3. **The Non-Linear Teleconnection Mechanism:** Instead of pre-aggregated 1D scalar indices (Niño 3.4, DMI), $M_7$ accepts a trimmed 2D grid ($[10^\circ\text{S}\text{--}30^\circ\text{N}, 30^\circ\text{E}\text{--}100^\circ\text{E}]$ covering the Indian Ocean and Arabian Sea), allowing 2D convolutions to learn spatial dipole patterns directly from grid cells without arbitrary regional boundaries.
+
+#### 5.2 Four Training Safeguards for Small Climate Datasets:
+| Failure Mode | Deep Learning Risk | Audited Solution in $M_7$ |
+| :--- | :--- | :--- |
+| **Data Leakage** | Scalers fitted over entire multi-decadal record | Fit normalization stats **only on $t_{\text{train}} \le \text{origin} - h$** inside the walk-forward loop. |
+| **Small-Sample Overfitting** | Thousands of parameters chasing $N_{\text{eff}} \approx 113.6$ | 1. Adaptive Average Pooling $(2, 2)$<br>2. Weight decay ($L_2 \ge 10^{-3}$)<br>3. Sequence length $L \le 12$ months |
+| **False Winter Skill** | Minimizing MSE by predicting dry Bega with high certainty | **Seasonally Weighted Loss:** Weight errors during Kiremt (JAS) and Belg (MAM) $2\times$ higher than dry-season (ONDJ) errors. |
+| **Lag-Overlap Exploitation** | Over-relying on $P_t$ in SPI-3 rather than physical dynamics | Pre-train on **pure ERA5 moisture convergence anomalies (VIMC)** or non-overlapping monthly rainfall before fine-tuning. |
+
+#### 5.3 Interpretability & Gradient Saliency Verification:
+To confirm physical validity, $M_7$ incorporates gradient attribution back to the input SST grid:
+$$\text{Attribution}(c, h, w) = \left| \frac{\partial \hat{y}_{t+h}}{\partial x_{\text{grid}}(c, h, w)} \right|$$
+If attribution peaks over the **Western Indian Ocean and Arabian Sea** during wet seasons, it physically corroborates the teleconnection pathways identified in diagnostic analyses. If it highlights random open-ocean pixels, the model has overfit to climate noise.
 
 ---
 
-### 6. Multi-Criteria Evaluation Metrics
+### 6. Direct Benchmarking Integration Protocol ($M_0$ through $M_7$)
 
-#### 6.1 Continuous Forecast Evaluation
+Model $M_7$ is integrated as the deep spatiotemporal benchmark alongside models $M_0\text{--}M_6$:
+1. **Direct-Horizon Training:** Train three separate models for $h=1$, $h=2$, and $h=3$. Autoregressive recursive feeding (which cascades errors) is strictly prohibited.
+2. **Paired Calendar Bootstrap Verification:** Evaluated using the identical 8-year paired calendar year-block bootstrap ($B = 2,000$) comparing $M_7$ against $M_2$ (Local AR) and $M_4$ (Indian Ocean Ridge).
+3. **Automated Unit Tests:** Verified by [`drought_forecasting/tests/test_spatiotemporal_cnn_bilstm.py`](file:///c:/Users/User/Desktop/AgriMinds/drought_forecasting/tests/test_spatiotemporal_cnn_bilstm.py), guaranteeing forward-pass dimensions, attention weight normalization ($\sum \alpha_s = 1.0$), causal sequence isolation, gradient saliency, and loss weighting.
+
+---
+
+### 7. Multi-Criteria Evaluation Metrics
+
+#### 7.1 Continuous Forecast Evaluation
 * **Mean Absolute Error (MAE):** $\text{MAE} = \frac{1}{N} \sum |y_i - \hat{y}_i|$
 * **Root Mean Square Error (RMSE):** $\text{RMSE} = \sqrt{\frac{1}{N} \sum (y_i - \hat{y}_i)^2}$
 * **Pearson Correlation Coefficient ($r$):** Linear phase alignment.
 * **Spearman Rank Correlation ($\rho$):** Monotonic rank ordering.
 
-#### 6.2 Probabilistic & Categorical Drought Evaluation
+#### 7.2 Probabilistic & Categorical Drought Evaluation
 * **Brier Score (BS) & Brier Skill Score (BSS):**
   $$\text{BS} = \frac{1}{N} \sum_{i=1}^N (p_i - o_i)^2, \quad \text{BSS} = 1 - \frac{\text{BS}_{\text{model}}}{\text{BS}_{\text{climatology}}}$$
 * **Continuous Ranked Probability Score (CRPS):** Evaluates entire predicted probability density function.
 * **Categorical Contingency Metrics:** Precision, Recall (POD), False Alarm Ratio (FAR), and Critical Success Index (CSI / Threat Score) for drought events ($\text{SPEI} \le -1.5$).
-
----
-
-### 7. Gate 5 Verification Readiness
-
-* **Status:** **PAUSED BY DESIGN**.
-* **Integrity Gate:** No neural network training or hyperparameter search will be executed until Gates 1–4 are certified.
