@@ -1,0 +1,542 @@
+{
+  "period_2017_2024": {
+    "Kiremt Monsoon (JJAS)": {
+      "Lead 0 (Issue 1 June)": {
+        "m0_clim": {
+          "rmse": 58.44,
+          "mae": 51.27,
+          "r": -0.3698,
+          "brier_score": 0.1119,
+          "brier_skill_score": 0.0
+        },
+        "m1_local": {
+          "rmse": 54.58,
+          "mae": 49.74,
+          "r": 0.528,
+          "brier_score": 0.1078,
+          "brier_skill_score": 0.037
+        },
+        "m2_ocean": {
+          "rmse": 49.93,
+          "mae": 42.29,
+          "r": -0.1742,
+          "brier_score": 0.0799,
+          "brier_skill_score": 0.286
+        },
+        "m3_pacific": {
+          "rmse": 55.79,
+          "mae": 49.43,
+          "r": 0.4298,
+          "brier_score": 0.1103,
+          "brier_skill_score": 0.014
+        },
+        "m4_indian": {
+          "rmse": 46.43,
+          "mae": 40.98,
+          "r": 0.4093,
+          "brier_score": 0.0795,
+          "brier_skill_score": 0.2898
+        },
+        "m5_all_oceans": {
+          "rmse": 45.11,
+          "mae": 40.19,
+          "r": 0.4844,
+          "brier_score": 0.0764,
+          "brier_skill_score": 0.3171
+        }
+      },
+      "Lead 1 (Issue 1 May)": {
+        "m0_clim": {
+          "rmse": 58.44,
+          "mae": 51.27,
+          "r": -0.3698,
+          "brier_score": 0.1119,
+          "brier_skill_score": 0.0
+        },
+        "m1_local": {
+          "rmse": 50.02,
+          "mae": 45.85,
+          "r": 0.5011,
+          "brier_score": 0.0949,
+          "brier_skill_score": 0.1521
+        },
+        "m2_ocean": {
+          "rmse": 54.07,
+          "mae": 47.97,
+          "r": -0.5831,
+          "brier_score": 0.0814,
+          "brier_skill_score": 0.2729
+        },
+        "m3_pacific": {
+          "rmse": 51.16,
+          "mae": 47.68,
+          "r": 0.4314,
+          "brier_score": 0.0972,
+          "brier_skill_score": 0.1311
+        },
+        "m4_indian": {
+          "rmse": 48.19,
+          "mae": 43.19,
+          "r": -0.0064,
+          "brier_score": 0.0699,
+          "brier_skill_score": 0.3757
+        },
+        "m5_all_oceans": {
+          "rmse": 46.98,
+          "mae": 43.6,
+          "r": 0.1076,
+          "brier_score": 0.0707,
+          "brier_skill_score": 0.3682
+        }
+      },
+      "Lead 2 (Issue 1 April)": {
+        "m0_clim": {
+          "rmse": 58.44,
+          "mae": 51.27,
+          "r": -0.3698,
+          "brier_score": 0.1119,
+          "brier_skill_score": 0.0
+        },
+        "m1_local": {
+          "rmse": 53.6,
+          "mae": 46.23,
+          "r": -0.6056,
+          "brier_score": 0.0802,
+          "brier_skill_score": 0.2831
+        },
+        "m2_ocean": {
+          "rmse": 53.96,
+          "mae": 45.49,
+          "r": -0.3101,
+          "brier_score": 0.0874,
+          "brier_skill_score": 0.2192
+        },
+        "m3_pacific": {
+          "rmse": 53.99,
+          "mae": 46.57,
+          "r": -0.5906,
+          "brier_score": 0.0808,
+          "brier_skill_score": 0.2778
+        },
+        "m4_indian": {
+          "rmse": 52.84,
+          "mae": 45.29,
+          "r": -0.9507,
+          "brier_score": 0.0652,
+          "brier_skill_score": 0.4175
+        },
+        "m5_all_oceans": {
+          "rmse": 50.55,
+          "mae": 41.4,
+          "r": -0.8359,
+          "brier_score": 0.064,
+          "brier_skill_score": 0.428
+        }
+      },
+      "Lead 3 (Issue 1 March)": {
+        "m0_clim": {
+          "rmse": 58.44,
+          "mae": 51.27,
+          "r": -0.3698,
+          "brier_score": 0.1119,
+          "brier_skill_score": 0.0
+        },
+        "m1_local": {
+          "rmse": 63.87,
+          "mae": 55.02,
+          "r": 0.0424,
+          "brier_score": 0.1238,
+          "brier_skill_score": -0.1066
+        },
+        "m2_ocean": {
+          "rmse": 53.63,
+          "mae": 43.86,
+          "r": -0.1661,
+          "brier_score": 0.0885,
+          "brier_skill_score": 0.2095
+        },
+        "m3_pacific": {
+          "rmse": 63.89,
+          "mae": 55.11,
+          "r": 0.0476,
+          "brier_score": 0.124,
+          "brier_skill_score": -0.1082
+        },
+        "m4_indian": {
+          "rmse": 54.96,
+          "mae": 47.05,
+          "r": -0.0015,
+          "brier_score": 0.0971,
+          "brier_skill_score": 0.1326
+        },
+        "m5_all_oceans": {
+          "rmse": 55.76,
+          "mae": 47.58,
+          "r": -0.1274,
+          "brier_score": 0.0976,
+          "brier_skill_score": 0.1279
+        }
+      }
+    },
+    "Belg Rains (MAM)": {
+      "Lead 0 (Issue 1 March)": {
+        "m0_clim": {
+          "rmse": 26.32,
+          "mae": 22.35,
+          "r": -0.6717,
+          "brier_score": 0.1973,
+          "brier_skill_score": 0.0
+        },
+        "m1_local": {
+          "rmse": 27.06,
+          "mae": 21.61,
+          "r": 0.0291,
+          "brier_score": 0.1768,
+          "brier_skill_score": 0.1042
+        },
+        "m2_ocean": {
+          "rmse": 26.29,
+          "mae": 22.94,
+          "r": -0.0638,
+          "brier_score": 0.1758,
+          "brier_skill_score": 0.1092
+        },
+        "m3_pacific": {
+          "rmse": 26.84,
+          "mae": 21.79,
+          "r": 0.1006,
+          "brier_score": 0.1715,
+          "brier_skill_score": 0.1307
+        },
+        "m4_indian": {
+          "rmse": 27.16,
+          "mae": 21.71,
+          "r": 0.0087,
+          "brier_score": 0.1775,
+          "brier_skill_score": 0.1005
+        },
+        "m5_all_oceans": {
+          "rmse": 27.03,
+          "mae": 22.06,
+          "r": 0.0572,
+          "brier_score": 0.1706,
+          "brier_skill_score": 0.1353
+        }
+      },
+      "Lead 1 (Issue 1 February)": {
+        "m0_clim": {
+          "rmse": 26.32,
+          "mae": 22.35,
+          "r": -0.6717,
+          "brier_score": 0.1973,
+          "brier_skill_score": 0.0
+        },
+        "m1_local": {
+          "rmse": 27.34,
+          "mae": 23.23,
+          "r": -0.5163,
+          "brier_score": 0.1871,
+          "brier_skill_score": 0.0519
+        },
+        "m2_ocean": {
+          "rmse": 28.82,
+          "mae": 25.58,
+          "r": -0.5413,
+          "brier_score": 0.19,
+          "brier_skill_score": 0.0371
+        },
+        "m3_pacific": {
+          "rmse": 27.18,
+          "mae": 23.46,
+          "r": -0.3592,
+          "brier_score": 0.1839,
+          "brier_skill_score": 0.0681
+        },
+        "m4_indian": {
+          "rmse": 27.58,
+          "mae": 23.52,
+          "r": -0.5422,
+          "brier_score": 0.1872,
+          "brier_skill_score": 0.0514
+        },
+        "m5_all_oceans": {
+          "rmse": 29.74,
+          "mae": 26.3,
+          "r": -0.6249,
+          "brier_score": 0.1941,
+          "brier_skill_score": 0.0162
+        }
+      }
+    }
+  },
+  "period_2000_2024": {
+    "Kiremt Monsoon (JJAS)": {
+      "Lead 0 (Issue 1 June)": {
+        "m0_clim": {
+          "rmse": 77.44,
+          "mae": 63.08,
+          "r": -0.3548,
+          "brier_score": 0.1511,
+          "brier_skill_score": 0.0
+        },
+        "m1_local": {
+          "rmse": 75.05,
+          "mae": 62.91,
+          "r": 0.069,
+          "brier_score": 0.1335,
+          "brier_skill_score": 0.1166
+        },
+        "m2_ocean": {
+          "rmse": 74.05,
+          "mae": 59.93,
+          "r": 0.1582,
+          "brier_score": 0.1275,
+          "brier_skill_score": 0.1564
+        },
+        "m3_pacific": {
+          "rmse": 72.94,
+          "mae": 61.68,
+          "r": 0.2328,
+          "brier_score": 0.1298,
+          "brier_skill_score": 0.1415
+        },
+        "m4_indian": {
+          "rmse": 72.78,
+          "mae": 60.11,
+          "r": 0.1723,
+          "brier_score": 0.1227,
+          "brier_skill_score": 0.1882
+        },
+        "m5_all_oceans": {
+          "rmse": 72.06,
+          "mae": 60.19,
+          "r": 0.2356,
+          "brier_score": 0.1212,
+          "brier_skill_score": 0.1978
+        }
+      },
+      "Lead 1 (Issue 1 May)": {
+        "m0_clim": {
+          "rmse": 77.44,
+          "mae": 63.08,
+          "r": -0.3548,
+          "brier_score": 0.1511,
+          "brier_skill_score": 0.0
+        },
+        "m1_local": {
+          "rmse": 75.85,
+          "mae": 61.4,
+          "r": 0.0052,
+          "brier_score": 0.1306,
+          "brier_skill_score": 0.1358
+        },
+        "m2_ocean": {
+          "rmse": 74.97,
+          "mae": 60.17,
+          "r": 0.0264,
+          "brier_score": 0.1266,
+          "brier_skill_score": 0.1622
+        },
+        "m3_pacific": {
+          "rmse": 75.43,
+          "mae": 62.34,
+          "r": 0.0605,
+          "brier_score": 0.1298,
+          "brier_skill_score": 0.1411
+        },
+        "m4_indian": {
+          "rmse": 73.4,
+          "mae": 58.63,
+          "r": 0.1067,
+          "brier_score": 0.1161,
+          "brier_skill_score": 0.2315
+        },
+        "m5_all_oceans": {
+          "rmse": 74.05,
+          "mae": 60.04,
+          "r": 0.1031,
+          "brier_score": 0.1188,
+          "brier_skill_score": 0.2139
+        }
+      },
+      "Lead 2 (Issue 1 April)": {
+        "m0_clim": {
+          "rmse": 77.44,
+          "mae": 63.08,
+          "r": -0.3548,
+          "brier_score": 0.1511,
+          "brier_skill_score": 0.0
+        },
+        "m1_local": {
+          "rmse": 77.08,
+          "mae": 61.47,
+          "r": -0.0872,
+          "brier_score": 0.125,
+          "brier_skill_score": 0.1731
+        },
+        "m2_ocean": {
+          "rmse": 76.11,
+          "mae": 59.75,
+          "r": -0.0524,
+          "brier_score": 0.1288,
+          "brier_skill_score": 0.1476
+        },
+        "m3_pacific": {
+          "rmse": 77.45,
+          "mae": 61.85,
+          "r": -0.1012,
+          "brier_score": 0.1256,
+          "brier_skill_score": 0.1692
+        },
+        "m4_indian": {
+          "rmse": 76.14,
+          "mae": 60.24,
+          "r": -0.0051,
+          "brier_score": 0.1149,
+          "brier_skill_score": 0.2399
+        },
+        "m5_all_oceans": {
+          "rmse": 76.82,
+          "mae": 58.87,
+          "r": -0.0319,
+          "brier_score": 0.1167,
+          "brier_skill_score": 0.2282
+        }
+      },
+      "Lead 3 (Issue 1 March)": {
+        "m0_clim": {
+          "rmse": 77.44,
+          "mae": 63.08,
+          "r": -0.3548,
+          "brier_score": 0.1511,
+          "brier_skill_score": 0.0
+        },
+        "m1_local": {
+          "rmse": 79.52,
+          "mae": 65.31,
+          "r": -0.2606,
+          "brier_score": 0.1441,
+          "brier_skill_score": 0.0463
+        },
+        "m2_ocean": {
+          "rmse": 77.66,
+          "mae": 60.06,
+          "r": -0.0182,
+          "brier_score": 0.1373,
+          "brier_skill_score": 0.0917
+        },
+        "m3_pacific": {
+          "rmse": 79.99,
+          "mae": 65.58,
+          "r": -0.2584,
+          "brier_score": 0.145,
+          "brier_skill_score": 0.0404
+        },
+        "m4_indian": {
+          "rmse": 76.28,
+          "mae": 61.75,
+          "r": -0.0678,
+          "brier_score": 0.1337,
+          "brier_skill_score": 0.1156
+        },
+        "m5_all_oceans": {
+          "rmse": 78.82,
+          "mae": 62.3,
+          "r": -0.1361,
+          "brier_score": 0.1391,
+          "brier_skill_score": 0.0799
+        }
+      }
+    },
+    "Belg Rains (MAM)": {
+      "Lead 0 (Issue 1 March)": {
+        "m0_clim": {
+          "rmse": 30.94,
+          "mae": 25.36,
+          "r": -0.4111,
+          "brier_score": 0.2497,
+          "brier_skill_score": 0.0
+        },
+        "m1_local": {
+          "rmse": 30.72,
+          "mae": 25.09,
+          "r": -0.1172,
+          "brier_score": 0.24,
+          "brier_skill_score": 0.0386
+        },
+        "m2_ocean": {
+          "rmse": 31.99,
+          "mae": 26.81,
+          "r": -0.4092,
+          "brier_score": 0.241,
+          "brier_skill_score": 0.0346
+        },
+        "m3_pacific": {
+          "rmse": 30.66,
+          "mae": 24.95,
+          "r": -0.0964,
+          "brier_score": 0.2362,
+          "brier_skill_score": 0.0537
+        },
+        "m4_indian": {
+          "rmse": 31.12,
+          "mae": 25.57,
+          "r": -0.1767,
+          "brier_score": 0.2447,
+          "brier_skill_score": 0.0199
+        },
+        "m5_all_oceans": {
+          "rmse": 31.62,
+          "mae": 26.2,
+          "r": -0.2212,
+          "brier_score": 0.2419,
+          "brier_skill_score": 0.0311
+        }
+      },
+      "Lead 1 (Issue 1 February)": {
+        "m0_clim": {
+          "rmse": 30.94,
+          "mae": 25.36,
+          "r": -0.4111,
+          "brier_score": 0.2497,
+          "brier_skill_score": 0.0
+        },
+        "m1_local": {
+          "rmse": 31.15,
+          "mae": 25.59,
+          "r": -0.4683,
+          "brier_score": 0.24,
+          "brier_skill_score": 0.0387
+        },
+        "m2_ocean": {
+          "rmse": 32.15,
+          "mae": 26.99,
+          "r": -0.3362,
+          "brier_score": 0.245,
+          "brier_skill_score": 0.0186
+        },
+        "m3_pacific": {
+          "rmse": 31.19,
+          "mae": 25.64,
+          "r": -0.4592,
+          "brier_score": 0.2387,
+          "brier_skill_score": 0.0439
+        },
+        "m4_indian": {
+          "rmse": 31.3,
+          "mae": 25.69,
+          "r": -0.4581,
+          "brier_score": 0.2412,
+          "brier_skill_score": 0.0339
+        },
+        "m5_all_oceans": {
+          "rmse": 32.45,
+          "mae": 27.34,
+          "r": -0.4165,
+          "brier_score": 0.2466,
+          "brier_skill_score": 0.0122
+        }
+      }
+    }
+  }
+}
