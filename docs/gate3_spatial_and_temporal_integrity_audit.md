@@ -58,26 +58,20 @@ The pipeline ingests two independent climate grids spanning the basin:
 ### 3. Spatial Aggregation & NoData Contamination Elimination
 
 #### 3.1 Area-Weighted Aggregation Formulation & Double-Counting Safeguard
-To account for grid cell distortion with latitude and boundary truncation, weights are computed using coordinate-space polygon fractions:
-$$f_{i,j} = \left(\frac{\text{Area}(\mathcal{C}_{i,j} \cap \mathcal{P})}{\text{Area}(\mathcal{C}_{i,j})}\right)_{\text{degree space}} \in [0, 1]$$
+Let $a_i$ be the actual physical area of intersection between grid cell $i$ and the catchment boundary polygon (in $\text{km}^2$).
+Let $v_{i,t} \in \{0, 1\}$ equal 1 for a valid observation (finite, non-sentinel, $\ge 0.0$ for precipitation) at time $t$, and 0 otherwise.
 
-Because the physical area of a degree-space cell scales with $\cos(\phi_i)$, the effective area weight is:
-$$w_{i,j} = f_{i,j} \cdot \cos(\phi_i)$$
+**1. Spatial Coverage Metric:**
+$$C_t = \frac{\sum_i v_{i,t} a_i}{\sum_i a_i}$$
 
-* **Safeguard against Double-Counting:** If the intersection area $\text{Area}(\mathcal{C}_{i,j} \cap \mathcal{P})$ is computed directly as a true geodesic area (in $\text{km}^2$), it is used directly as $w_{i,j}$ **without** multiplying by $\cos(\phi_i)$, preventing duplicate latitude corrections.
+**2. The 95% Spatial Coverage Quality Gate:**
+* If $C_t \ge 0.95$: the monthly value is certified and recorded using the area-weighted mean over valid cells:
+  $$\bar{x}_t = \frac{\sum_i v_{i,t} a_i x_{i,t}}{\sum_i v_{i,t} a_i}$$
+* If $C_t < 0.95$: the month is flagged `INSUFFICIENT_SPATIAL_COVERAGE` and strictly outputs `NaN`.
 
-Normalized strictly over valid (non-missing, finite) cells:
-$$\bar{X}_{\text{basin}} = \frac{\sum_{(i,j) \in \text{valid}} X_{i,j} \cdot w_{i,j}}{\sum_{(i,j) \in \text{valid}} w_{i,j}}$$
-
-#### 3.2 Elimination of NoData Sentinels
-In naive implementations, negative sentinels (such as CHIRPS $-9999.0$) can enter the summation if masked only by polygon containment rather than valid observation status.
-* **Test Result:** In [`test_gate3_area_weighted_aggregation_nodata_exclusion`](file:///c:/Users/User/Desktop/AgriMinds/drought_forecasting/tests/test_gate3_spatial_and_temporal_integrity.py), injecting 30% NoData (-9999.0) into the catchment produced a naive mean of $-2,999.7\text{ mm}$, whereas the audited engine strictly isolated valid observations and recovered the exact true mean ($100.0\text{ mm}$, error $< 10^{-5}$).
-
-#### 3.3 The 95% Spatial Coverage Quality Gate
-To prevent localized observations or boundary artifacts from falsely characterizing the whole basin:
-$$\text{Coverage Ratio} = \sum_{(i,j) \in \text{valid}} w_{i,j} \ge 0.95$$
-* If $\text{Coverage Ratio} \ge 0.95$: the monthly value is certified and recorded.
-* If $\text{Coverage Ratio} < 0.95$: the month is flagged `INSUFFICIENT_SPATIAL_COVERAGE` and strictly outputs `NaN`.
+**3. Safeguard against Double-Counting in Gridded Projections:**
+* When using coordinate-space polygon fractions $f_{i,j} = \left(\frac{\text{Area}(\mathcal{C}_{i,j} \cap \mathcal{P})}{\text{Area}(\mathcal{C}_{i,j})}\right)_{\text{degree space}} \in [0, 1]$, multiply by the cell-area factor $\cos(\phi_i)$ to account for meridional convergence on a spherical Earth: $a_{i,j} \propto f_{i,j} \cos(\phi_i)$.
+* When using true geodesic intersection areas $a_i$ directly (in $\text{km}^2$), omit the $\cos(\phi_i)$ multiplier to prevent duplicate latitude adjustments.
 
 ---
 
