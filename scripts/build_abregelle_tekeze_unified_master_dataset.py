@@ -81,50 +81,14 @@ def extract_three_ocean_indices(db_path: Path) -> pd.DataFrame:
 
 def extract_era5_land_climate_and_soil(nc_path: Path) -> pd.DataFrame:
     """
-    Extracts monthly soil moisture and climate over Abregelle (13.0°-13.5°N, 38.75°-39.0°E)
-    from the verified 492-month ERA5-Land NetCDF archive (1983-2023).
+    Provenance & Data Audit Notice:
+    The legacy root file `2000-2023-soillayer.nc` was formally REJECTED and RETRACTED
+    (see docs/data_source_register.md and docs/temperature_source_and_provenance_audit.md)
+    because its timestamps were shifted into future sub-daily steps (year 2025, median step 10h).
+    To strictly uphold the Strictly Zero Synthetic Data Rule, soil moisture fields are left
+    unpopulated until genuine, verified ERA5-Land monthly NetCDF archives are ingested.
     """
-    if not nc_path.exists():
-        print(f"Warning: {nc_path} not found. Returning empty frame.")
-        return pd.DataFrame()
-
-    ds = nc.Dataset(str(nc_path))
-    lats = np.asarray(ds.variables["latitude"][:], dtype=np.float32)
-    lons = np.asarray(ds.variables["longitude"][:], dtype=np.float32)
-
-    # Abregelle Woreda grid bounding box
-    lat_mask = (lats >= 13.00 - 1e-4) & (lats <= 13.50 + 1e-4)
-    lon_mask = (lons >= 38.75 - 1e-4) & (lons <= 39.00 + 1e-4)
-
-    lat_idx = np.where(lat_mask)[0]
-    lon_idx = np.where(lon_mask)[0]
-
-    swvl1_raw = ds.variables["swvl1"][:, 0, lat_idx[0]:lat_idx[-1]+1, lon_idx[0]:lon_idx[-1]+1]
-    swvl2_raw = ds.variables["swvl2"][:, 0, lat_idx[0]:lat_idx[-1]+1, lon_idx[0]:lon_idx[-1]+1]
-    t2m_raw   = ds.variables["t2m"][:, 0, lat_idx[0]:lat_idx[-1]+1, lon_idx[0]:lon_idx[-1]+1]
-    tp_raw    = ds.variables["tp"][:, 0, lat_idx[0]:lat_idx[-1]+1, lon_idx[0]:lon_idx[-1]+1]
-
-    # Convert t2m to Celsius if Kelvin
-    t2m_c = t2m_raw - 273.15 if np.nanmean(t2m_raw) > 200.0 else t2m_raw
-    # Convert tp to mm if in meters
-    tp_mm = tp_raw * 1000.0 if np.nanmax(tp_raw) < 1.0 else tp_raw
-
-    # Spatial average over Abregelle Woreda core
-    swvl1_mean = np.mean(swvl1_raw, axis=(1, 2))
-    swvl2_mean = np.mean(swvl2_raw, axis=(1, 2))
-    t2m_mean   = np.mean(t2m_c, axis=(1, 2))
-    tp_mean    = np.mean(tp_mm, axis=(1, 2))
-
-    # Construct monthly date index for 492 months (1983-01 to 2023-12)
-    dates = pd.date_range(start="1983-01-01", periods=len(swvl1_mean), freq="MS")
-    df_era = pd.DataFrame({
-        "ym": dates.strftime("%Y-%m"),
-        "era5_swvl1_surface": swvl1_mean,
-        "era5_swvl2_rootzone": swvl2_mean,
-        "era5_tmean_c": t2m_mean,
-        "era5_precip_mm": tp_mean
-    })
-    return df_era
+    return pd.DataFrame()
 
 
 def compute_hargreaves_pet_series(tmean_series: pd.Series, dtr_series: pd.Series, months: pd.Series, lat_deg: float) -> pd.Series:
@@ -299,11 +263,14 @@ def build_unified_abregelle_dataset() -> pd.DataFrame:
     # Mark provenance flags explicitly per row
     def assign_provenance(row: pd.Series) -> str:
         has_oceans = not pd.isna(row["nino34_sst_anomaly"]) and not pd.isna(row["dmi"])
+        has_precip = not pd.isna(row["chirps_abregelle_precip_mm"])
         has_era = not pd.isna(row["era5_swvl2_rootzone"])
-        if has_oceans and has_era:
+        if has_oceans and has_precip and has_era:
             return "VALID_OBSERVATION_FULL_COUPLED"
+        elif has_oceans and has_precip:
+            return "VALID_OBSERVATION_CHIRPS_OCEANS_COMPLETE"
         elif has_oceans:
-            return "OCEANS_COMPLETE_LOCAL_PENDING_INGESTION"
+            return "OCEANS_COMPLETE_LOCAL_PENDING"
         else:
             return "INCOMPLETE_ARCHIVE"
 
@@ -323,88 +290,104 @@ def build_unified_abregelle_dataset() -> pd.DataFrame:
 
 def evaluate_leakage_safe_forecasting(df: pd.DataFrame) -> Dict[str, Any]:
     """
-    Evaluates 1-, 2-, and 3-month lead forecasts comparing:
-      1. Climatology Baseline (E[y])
-      2. Persistence Baseline (y_t)
-      3. Local-Climate-Only Model (AR lag-1 of local soil moisture and rainfall)
-      4. Multi-Ocean Informed Model (Local climate + Pacific Niño 3.4 + Indian DMI + Atlantic Gradient)
-    Strictly causal: X <= t predicts D_{t+h}.
+    Evaluates strictly leakage-safe multi-lead seasonal drought forecasts (h in {1, 2, 3} months).
+    Target: Standardized Precipitation Index (SPI-3) over Tanqua Abergele Woreda polygon (mean=0.0, std=1.0).
+    Evaluation Period: Exactly 2016-01 through 2023-12 (96 continuous calendar months).
+    Training Period: 1981-03 through 2015-12 (418 continuous historical months).
+    Models Evaluated:
+      1. Climatological Mean (E[y] = 0.0)
+      2. Autoregressive Persistence (SPI-3_{t-h})
+      3. Local-Climate-Only Model (AR on SPI-3_{t-h} + calendar harmonics)
+      4. Multi-Ocean Informed Model (Local climate + Pacific Nino 3.4 at t-h and t-h-6 + Indian DMI + Atlantic Gradient)
+    Strictly causal: X_{<= t-h} predicts SPI-3_{t}.
     """
-    print("\nEvaluating Leakage-Safe Multi-Lead Forecast Experiments (h in {1, 2, 3} months)...")
+    print("\nEvaluating Leakage-Safe Multi-Lead Forecast Experiments on Abregelle SPI-3...")
 
-    # Filter to period with valid soil moisture & drought targets (1983-2023)
-    df_valid = df.dropna(subset=["soil_moisture_rootzone_anomaly", "nino34_sst_anomaly", "dmi"]).copy().reset_index(drop=True)
-    n_samples = len(df_valid)
-    print(f"  Valid continuous evaluation samples: {n_samples} months.")
+    # Filter to period with valid SPI3 target
+    target_col = "spi3"
+    test_mask = (df["year"] >= 2016) & (df["year"] <= 2023)
+    test_df = df[test_mask]
+    test_indices = test_df.index
+    y_test = test_df[target_col].values
+    n_test = len(y_test)
+    print(f"  Holdout evaluation window: 2016-01 to 2023-12 ({n_test} calendar months).")
 
-    # Chronological Split: 80% train (1983-2015), 20% holdout test (2016-2023)
-    split_idx = int(0.80 * n_samples)
-    train_df = df_valid.iloc[:split_idx]
-    test_df  = df_valid.iloc[split_idx:]
-
-    target_col = "soil_moisture_rootzone_anomaly"
     results = {}
 
     for h in [1, 2, 3]:
-        # Target at lead h: y_{t+h}
-        y_train = train_df[target_col].iloc[h:].values
-        y_test  = test_df[target_col].iloc[h:].values
-
         # Baseline 1: Climatological Mean
-        y_pred_clim = np.full(len(y_test), np.mean(train_df[target_col]))
+        y_pred_clim = np.full(n_test, 0.0)
 
-        # Baseline 2: Persistence (y_{t})
-        y_pred_pers = test_df[target_col].iloc[:-h].values
+        # Baseline 2: Persistence (SPI-3 at t - h)
+        y_pred_pers = df.loc[test_indices - h, target_col].values
 
-        # Model 1: Local-Climate-Only (autoregressive lag-1)
-        X_train_local = train_df[[target_col]].iloc[:-h].values
-        X_test_local  = test_df[[target_col]].iloc[:-h].values
-        beta_local = np.linalg.lstsq(X_train_local, y_train, rcond=None)[0]
-        y_pred_local = X_test_local @ beta_local
+        # Training indices: year < 2016 and index >= 2 + h + 6 (ensures lag-6 ocean and lag-h SPI3 valid)
+        min_train_idx = 2 + h + 6
+        train_indices = df.index[(df["year"] < 2016) & (df.index >= min_train_idx)]
+        y_train = df.loc[train_indices, target_col].values
 
-        # Model 2: Multi-Ocean Informed (Local + Nino 3.4 + DMI + Atlantic Gradient)
-        ocean_cols = [target_col, "nino34_sst_anomaly", "dmi", "atl_meridional_gradient"]
-        X_train_ocean = train_df[ocean_cols].iloc[:-h].values
-        X_test_ocean  = test_df[ocean_cols].iloc[:-h].values
+        # Feature builders
+        def build_features(indices: pd.Index, lead: int):
+            sp = df.loc[indices - lead, target_col].values[:, None]
+            mo = df.loc[indices, "month"].values
+            sin_mo = np.sin(2 * np.pi * mo / 12.0)[:, None]
+            cos_mo = np.cos(2 * np.pi * mo / 12.0)[:, None]
+            local_mat = np.hstack([sp, sin_mo, cos_mo])
 
-        # Ridge regression (L2 regularization to avoid overfitting)
-        reg_ocean = stats.linregress(train_df["nino34_sst_anomaly"].iloc[:-h], y_train)
+            nino = df.loc[indices - lead, "nino34_sst_anomaly"].values[:, None]
+            nino_lag6 = df.loc[indices - lead - 6, "nino34_sst_anomaly"].values[:, None]
+            dmi = df.loc[indices - lead, "dmi"].values[:, None]
+            atl = df.loc[indices - lead, "atl_meridional_gradient"].values[:, None]
+            ocean_mat = np.hstack([local_mat, nino, nino_lag6, dmi, atl])
+            return local_mat, ocean_mat
+
+        X_tr_loc, X_tr_ocn = build_features(train_indices, h)
+        X_te_loc, X_te_ocn = build_features(test_indices, h)
+
         from sklearn.linear_model import Ridge
-        ridge = Ridge(alpha=10.0)
-        ridge.fit(X_train_ocean, y_train)
-        y_pred_ocean = ridge.predict(X_test_ocean)
+        ridge_loc = Ridge(alpha=1.0).fit(X_tr_loc, y_train)
+        y_pred_loc = ridge_loc.predict(X_te_loc)
 
-        def get_metrics(y_true, y_pred):
+        ridge_ocn = Ridge(alpha=5.0).fit(X_tr_ocn, y_train)
+        y_pred_ocn = ridge_ocn.predict(X_te_ocn)
+
+        def get_metrics(y_true, y_pred, is_clim=False):
             rmse = float(np.sqrt(np.mean((y_true - y_pred)**2)))
-            mae  = float(np.mean(np.abs(y_true - y_pred)))
-            r, _ = stats.pearsonr(y_true, y_pred)
-            return {"rmse": round(rmse, 4), "mae": round(mae, 4), "pearson_r": round(float(r), 4)}
+            mae = float(np.mean(np.abs(y_true - y_pred)))
+            if is_clim:
+                r_val = None
+            else:
+                r, _ = stats.pearsonr(y_true, y_pred)
+                r_val = round(float(r), 4)
+            return {"rmse": round(rmse, 4), "mae": round(mae, 4), "pearson_r": r_val}
 
-        m_clim  = get_metrics(y_test, y_pred_clim)
-        m_pers  = get_metrics(y_test, y_pred_pers)
-        m_local = get_metrics(y_test, y_pred_local)
-        m_ocean = get_metrics(y_test, y_pred_ocean)
+        m_clim = get_metrics(y_test, y_pred_clim, is_clim=True)
+        m_pers = get_metrics(y_test, y_pred_pers)
+        m_loc = get_metrics(y_test, y_pred_loc)
+        m_ocn = get_metrics(y_test, y_pred_ocn)
 
-        # Skill score: 1 - (RMSE_ocean / RMSE_pers)
-        skill_gain_vs_pers = round((1.0 - m_ocean["rmse"] / m_pers["rmse"]) * 100.0, 2)
-        skill_gain_vs_local = round((1.0 - m_ocean["rmse"] / m_local["rmse"]) * 100.0, 2)
+        skill_gain_vs_pers = round((1.0 - m_ocn["rmse"] / m_pers["rmse"]) * 100.0, 2)
+        skill_gain_vs_local = round((1.0 - m_ocn["rmse"] / m_loc["rmse"]) * 100.0, 2)
 
         results[f"lead_{h}_month"] = {
             "lead_months": h,
-            "test_months_evaluated": len(y_test),
+            "target_variable": "spi3 (Abregelle 3-month Standardized Precipitation Index)",
+            "evaluation_window": "2016-01 to 2023-12",
+            "test_months_evaluated": n_test,
             "climatology_baseline": m_clim,
             "persistence_baseline": m_pers,
-            "local_climate_only": m_local,
-            "multi_ocean_informed": m_ocean,
+            "local_climate_only": m_loc,
+            "multi_ocean_informed": m_ocn,
             "skill_gain_vs_persistence_pct": skill_gain_vs_pers,
             "skill_gain_vs_local_only_pct": skill_gain_vs_local
         }
 
-        print(f"\n[LEAD HORIZON: {h} MONTH(S) AHEAD]")
-        print(f"  Persistence RMSE:       {m_pers['rmse']:.4f} (r = {m_pers['pearson_r']:.3f})")
-        print(f"  Local-Climate Only:     {m_local['rmse']:.4f} (r = {m_local['pearson_r']:.3f})")
-        print(f"  Multi-Ocean Informed:   {m_ocean['rmse']:.4f} (r = {m_ocean['pearson_r']:.3f})")
-        print(f"  Skill Gain vs Baseline: +{skill_gain_vs_pers:.1f}% error reduction over persistence")
+        print(f"\n[LEAD HORIZON: {h} MONTH(S) AHEAD] (Evaluated Months: {n_test})")
+        print(f"  Climatology Baseline:   RMSE = {m_clim['rmse']:.4f}, MAE = {m_clim['mae']:.4f}")
+        print(f"  Persistence Baseline:   RMSE = {m_pers['rmse']:.4f}, MAE = {m_pers['mae']:.4f}, r = {m_pers['pearson_r']}")
+        print(f"  Local Climate Model:    RMSE = {m_loc['rmse']:.4f}, MAE = {m_loc['mae']:.4f}, r = {m_loc['pearson_r']}")
+        print(f"  Multi-Ocean Model:      RMSE = {m_ocn['rmse']:.4f}, MAE = {m_ocn['mae']:.4f}, r = {m_ocn['pearson_r']}")
+        print(f"  Skill Gain vs Baseline: {skill_gain_vs_pers:+.2f}% error reduction over persistence")
 
     # Save to JSON
     json_path = PROCESSED_DIR / "forecast_skill_comparison_ocean_vs_baselines.json"
