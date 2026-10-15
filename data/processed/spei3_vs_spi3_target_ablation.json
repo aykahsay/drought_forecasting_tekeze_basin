@@ -1,0 +1,60 @@
+{
+  "SPI3_Meteorological": {
+    "Lead_1": {
+      "RMSE_M0_Clim": 0.9459,
+      "RMSE_M2_Local": 0.7694,
+      "RMSE_M4_Indian": 0.7638,
+      "Pearson_r_M2": 0.5664,
+      "Pearson_r_M4": 0.5709,
+      "dRMSE_M4_vs_M0": -0.1821,
+      "dRMSE_M4_vs_M2": -0.0056
+    },
+    "Lead_2": {
+      "RMSE_M0_Clim": 0.9456,
+      "RMSE_M2_Local": 0.8954,
+      "RMSE_M4_Indian": 0.8867,
+      "Pearson_r_M2": 0.3024,
+      "Pearson_r_M4": 0.3165,
+      "dRMSE_M4_vs_M0": -0.0589,
+      "dRMSE_M4_vs_M2": -0.0086
+    },
+    "Lead_3": {
+      "RMSE_M0_Clim": 0.9454,
+      "RMSE_M2_Local": 0.953,
+      "RMSE_M4_Indian": 0.9437,
+      "Pearson_r_M2": -0.0377,
+      "Pearson_r_M4": 0.0136,
+      "dRMSE_M4_vs_M0": -0.0017,
+      "dRMSE_M4_vs_M2": -0.0093
+    }
+  },
+  "SPEI3_Agricultural": {
+    "Lead_1": {
+      "RMSE_M0_Clim": 1.3687,
+      "RMSE_M2_Local": 0.9243,
+      "RMSE_M4_Indian": 0.9251,
+      "Pearson_r_M2": 0.7392,
+      "Pearson_r_M4": 0.7429,
+      "dRMSE_M4_vs_M0": -0.4436,
+      "dRMSE_M4_vs_M2": 0.0008
+    },
+    "Lead_2": {
+      "RMSE_M0_Clim": 1.3712,
+      "RMSE_M2_Local": 1.1837,
+      "RMSE_M4_Indian": 1.1872,
+      "Pearson_r_M2": 0.5079,
+      "Pearson_r_M4": 0.5167,
+      "dRMSE_M4_vs_M0": -0.184,
+      "dRMSE_M4_vs_M2": 0.0034
+    },
+    "Lead_3": {
+      "RMSE_M0_Clim": 1.3722,
+      "RMSE_M2_Local": 1.3295,
+      "RMSE_M4_Indian": 1.336,
+      "Pearson_r_M2": 0.2177,
+      "Pearson_r_M4": 0.2351,
+      "dRMSE_M4_vs_M0": -0.0362,
+      "dRMSE_M4_vs_M2": 0.0065
+    }
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "metadata": {
+    "title": "Topographically Masked ERA5 Vertically Integrated Moisture Convergence (VIMC) Audit",
+    "period": "1981-2024",
+    "domain": "Tekeze River Basin, Northern Ethiopia (11.0\u00b0N\u201315.0\u00b0N, 36.0\u00b0E\u201342.0\u00b0E)",
+    "mean_surface_pressure_hpa": 825.0,
+    "masked_levels_hpa": [
+      1000,
+      925,
+      850
+    ]
+  },
+  "kiremt_seasonal_cross_correlations": {
+    "corr_iod_dmi_june_vs_vimc_jas": 0.4094,
+    "p_value_iod_dmi": 0.0058,
+    "corr_nino34_june_vs_vimc_jas": -0.3402,
+    "p_value_nino34": 0.0239
+  },
+  "lag_cross_correlations": {
+    "lag_0m": {
+      "r_iod_dmi": 0.0118,
+      "p_iod": 0.7861,
+      "r_nino34": -0.0197,
+      "p_nino": 0.6507
+    },
+    "lag_1m": {
+      "r_iod_dmi": 0.008,
+      "p_iod": 0.8544,
+      "r_nino34": -0.0175,
+      "p_nino": 0.6882
+    },
+    "lag_2m": {
+      "r_iod_dmi": 0.0112,
+      "p_iod": 0.7984,
+      "r_nino34": -0.0144,
+      "p_nino": 0.7411
+    },
+    "lag_3m": {
+      "r_iod_dmi": 0.0342,
+      "p_iod": 0.4344,
+      "r_nino34": -0.0072,
+      "p_nino": 0.87
+    },
+    "lag_4m": {
+      "r_iod_dmi": 0.0349,
+      "p_iod": 0.425,
+      "r_nino34": -0.0017,
+      "p_nino": 0.9682
+    }
+  },
+  "drought_year_vimc_anomalies": {
+    "1984_great_famine": -1.927,
+    "2002_national_drought": -0.597,
+    "2015_record_el_nino": -1.237
+  }
+}

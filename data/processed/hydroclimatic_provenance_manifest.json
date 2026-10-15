@@ -1,0 +1,92 @@
+{
+  "title": "Tekeze Basin / Tanqua Abergele Hydroclimatic Master Ground Truth Dataset (1981-2024)",
+  "governance_standard": "Gate 1 & Gate 2 Scientific Quality Standards (Zero-Synthetic-Data Rule, Zero Lookahead)",
+  "domain": {
+    "target_region": "Tanqua Abergele Woreda (16 Kebeles Polygon)",
+    "river_basin": "Tekeze River Basin, Northern Ethiopia",
+    "latitude_bounds": [
+      13.17,
+      13.62
+    ],
+    "longitude_bounds": [
+      38.8,
+      39.25
+    ],
+    "mean_elevation_m": 1420.0,
+    "fill_ratio_polygon_vs_bbox": 0.5841
+  },
+  "temporal_coverage": {
+    "start_date": "1981-01-01",
+    "end_date": "2024-12-01",
+    "total_months": 528,
+    "missing_months": 0,
+    "missing_temperature_months": 0
+  },
+  "sources": {
+    "precipitation": {
+      "product": "CHIRPS v2.0 Monthly (0.05 deg)",
+      "institution": "UC Santa Barbara Climate Hazards Center",
+      "file": "chirps_monthly_precipitation_tekeze_abregelle.csv",
+      "sha256": "61f8a53a86565202dbd4a01cc42031181229432ed04e00d8f3f1f863768b6389"
+    },
+    "temperature": {
+      "product": "NOAA CPC Global Daily Temperature (0.5 deg)",
+      "institution": "NOAA PSL / Climate Prediction Center",
+      "variables": [
+        "Tmax",
+        "Tmin",
+        "Tmean",
+        "DTR"
+      ],
+      "file": "tekeze_monthly_temperature_audit_1981_2024.csv",
+      "sha256": "739f8a16df03ca6c3331d13d437d6353a70aa9b89255a59b1a7b66ae7c3e2b68"
+    },
+    "ocean_teleconnections": {
+      "enso_nino34": "NOAA ERSSTv5 / HadISST",
+      "iod_dmi": "NOAA PSL Dipole Mode Index",
+      "atlantic_gradient": "Tropical North Atlantic - Tropical South Atlantic Gradient"
+    }
+  },
+  "unified_master_table": {
+    "file": "abregelle_tekeze_unified_monthly_1981_2024.csv",
+    "rows": 528,
+    "columns": [
+      "date",
+      "year",
+      "month",
+      "ym",
+      "season",
+      "nino34_sst_anomaly",
+      "oni",
+      "dmi",
+      "north_atlantic_sst_anomaly",
+      "south_atlantic_sst_anomaly",
+      "amo",
+      "atl_meridional_gradient",
+      "era5_swvl1_surface",
+      "era5_swvl2_rootzone",
+      "era5_tmean_c",
+      "era5_precip_mm",
+      "t_max_c",
+      "t_min_c",
+      "t_mean_c",
+      "dtr_c",
+      "tmean_final_c",
+      "dtr_final_c",
+      "pet_hargreaves_mm",
+      "chirps_abregelle_precip_mm",
+      "chirps_tekeze_precip_mm",
+      "precip_analysis_mm",
+      "climatic_water_balance_mm",
+      "spi3",
+      "spei3",
+      "soil_moisture_rootzone_anomaly",
+      "provenance_status",
+      "et0_fao56_pm_mm",
+      "climatic_water_balance_pm_mm",
+      "d3_pm_mm",
+      "spei3_fao56_pm"
+    ],
+    "sha256": "e02e952ff82d145504ef264891920aeb497c5aef9b3fa4dc6f0a81ab404a02e6"
+  }
+}
