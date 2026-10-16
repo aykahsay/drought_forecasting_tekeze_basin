@@ -244,7 +244,48 @@ def build_huggingface_operations(root: Path) -> list[CommitOperationAdd]:
             path_or_fileobj=str(topology_audit)
         ))
 
-    # 11. Environment Requirements
+    # 11. Manuscript & Research Paper Suite
+    manuscript_dir = root / "manuscript"
+    if manuscript_dir.exists():
+        for mf in sorted(manuscript_dir.glob("*.*")):
+            operations.append(CommitOperationAdd(
+                path_in_repo=f"manuscript/{mf.name}",
+                path_or_fileobj=str(mf)
+            ))
+
+    # 12. Research Dialogue & Conversation Audit Transcripts
+    conversations_dir = root / "conversations"
+    if conversations_dir.exists():
+        for cf in sorted(conversations_dir.glob("*.md")):
+            operations.append(CommitOperationAdd(
+                path_in_repo=f"conversations/{cf.name}",
+                path_or_fileobj=str(cf)
+            ))
+
+    # 13. Publication Figures & Verification JSONs
+    proc_dir = root / "data" / "processed"
+    if proc_dir.exists():
+        for fig in sorted(proc_dir.glob("figure*.png")):
+            operations.append(CommitOperationAdd(
+                path_in_repo=f"figures/{fig.name}",
+                path_or_fileobj=str(fig)
+            ))
+        for jf in [
+            "paper_submission_tables_and_metrics.json",
+            "spei3_vs_spi3_target_ablation.json",
+            "tekeze_masked_vimc_teleconnection_audit.json",
+            "categorical_drought_evaluation_m4_vs_m7.json",
+            "rolling_origin_walkforward_auditable_metrics_2017_2024.json",
+            "seasonal_forecast_probabilistic_validation_metrics.json",
+        ]:
+            jp = proc_dir / jf
+            if jp.exists():
+                operations.append(CommitOperationAdd(
+                    path_in_repo=f"data/metrics/{jf}",
+                    path_or_fileobj=str(jp)
+                ))
+
+    # 14. Environment Requirements
     for req in ["requirements.txt", "requirements-lock.txt"]:
         req_p = root / req
         if req_p.exists():
